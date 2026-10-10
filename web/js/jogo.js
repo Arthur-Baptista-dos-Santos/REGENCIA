@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const cv = $('tela'), ctx = cv.getContext('2d');
   const el = { menu: $('menu'), como: $('como'), intro: $('intro'), resumo: $('resumo'), fim: $('fim'), toast: $('aviso-toast'),
-    frase: $('frase'), enviar: $('enviar'), status: $('status'), dicas: $('dicas'), rotulo: $('rotulo-frase'), iaStatus: $('ia-status'), iaToggle: $('ia-toggle') };
+    frase: $('frase'), enviar: $('enviar'), status: $('status'), dicas: $('dicas'), rotulo: $('rotulo-frase'), iaStatus: $('ia-status'), iaToggle: $('ia-toggle'), iaBaixar: $('ia-baixar') };
   const REDUZIR = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const FIXO = 1 / 120;
 
@@ -42,6 +42,8 @@
   function setTela(t) { tela = t; $('barra').hidden = t !== 'jogo'; }
   let J = null;           // partida
   let sampleFn = null, iaDisponivel = false, iaViva = false, primeiraChamadaIA = true;
+  let provedor = null;   // 'ambiente' (IA do ambiente de publicação) | 'navegador' (modelo local via WebGPU) | null
+  let baixando = false;
   const teclas = { esq: false, dir: false, pulo: false };
   let particulas = [], tremor = 0, relogioVisual = 0;
 
@@ -57,19 +59,63 @@
   const sinal = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
 
   // ---------- IA ao vivo (capacidade `sample` do Artifact) ----------
+  const MODELO_NAVEGADOR = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+  const URL_WEBLLM = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.85/+esm';
   function atualizarMenuIA() {
-    if (!iaDisponivel) { el.iaStatus.textContent = 'IA ao vivo indisponível aqui, usando o interpretador local (o jogo funciona igual).'; el.iaToggle.hidden = true; return; }
-    el.iaStatus.textContent = iaViva ? 'IA ao vivo: ligada (a IA interpreta seus decretos; pede permissão no 1º uso).' : 'IA ao vivo: desligada (interpretador local).';
-    el.iaToggle.hidden = false; el.iaToggle.textContent = iaViva ? 'Desligar' : 'Ligar';
+    const temGPU = !!navigator.gpu;
+    el.iaBaixar.hidden = true; el.iaToggle.hidden = true;
+    if (baixando) return;
+    if (iaDisponivel) {
+      const nome = provedor === 'navegador' ? 'modelo de linguagem rodando neste navegador' : 'IA do ambiente';
+      el.iaStatus.textContent = iaViva ? 'IA ao vivo: ligada (' + nome + ').' : 'IA ao vivo: desligada (interpretador local).';
+      el.iaToggle.hidden = false; el.iaToggle.textContent = iaViva ? 'Desligar' : 'Ligar';
+    } else if (temGPU) {
+      el.iaStatus.textContent = 'IA ao vivo desligada: usando o interpretador local. Você pode ativar um modelo de linguagem que roda no seu navegador.';
+      el.iaBaixar.hidden = false;
+    } else {
+      el.iaStatus.textContent = 'IA ao vivo indisponível neste navegador (sem WebGPU): usando o interpretador local. O jogo funciona igual.';
+    }
   }
   async function iniciarIA() {
     try {
       if (window.claude && typeof window.claude.use === 'function') {
         const s = await window.claude.use('sample');
-        if (s) { sampleFn = s; iaDisponivel = true; iaViva = true; }
+        if (s) { sampleFn = s; iaDisponivel = true; iaViva = true; provedor = 'ambiente'; }
       }
-    } catch (e) { /* sem IA ao vivo */ }
+    } catch (e) { /* sem IA do ambiente */ }
     atualizarMenuIA();
+  }
+  /** Baixa (1ª vez, ~1 GB, fica em cache) e inicia um modelo de linguagem que roda 100% no navegador, via WebGPU. */
+  async function ativarIANavegador() {
+    if (baixando || provedor === 'navegador') return;
+    if (!navigator.gpu) { aviso('Este navegador não tem WebGPU. Use Chrome ou Edge recentes no computador.', 3500); return; }
+    baixando = true; el.iaBaixar.hidden = true; el.iaToggle.hidden = true;
+    el.iaStatus.textContent = 'Preparando o modelo de linguagem… (a 1ª vez baixa cerca de 1 GB e fica guardado no navegador)';
+    try {
+      const m = await import(URL_WEBLLM);
+      const motor = await m.CreateMLCEngine(MODELO_NAVEGADOR, {
+        initProgressCallback: (p) => { el.iaStatus.textContent = 'Modelo de linguagem: ' + Math.round((p.progress || 0) * 100) + '% ' + (p.text.includes('Fetching') ? '(baixando)' : '(carregando na GPU)'); },
+      });
+      sampleFn = {
+        json: async (prompt, opts) => {
+          if (opts && opts.signal && opts.signal.aborted) throw { code: 'cancelled' };
+          const aborta = () => { try { motor.interruptGenerate(); } catch (e) { /* sem geração em curso */ } };
+          if (opts && opts.signal) opts.signal.addEventListener('abort', aborta, { once: true });
+          const r = await motor.chat.completions.create({
+            messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 220,
+          });
+          if (opts && opts.signal && opts.signal.aborted) throw { code: 'cancelled' };
+          const texto = (r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content) || '';
+          const ini = texto.indexOf('{'), fim = texto.lastIndexOf('}');
+          try { return JSON.parse(texto.slice(ini, fim + 1)); } catch (e) { throw { code: 'invalid_json', message: texto.slice(0, 80) }; }
+        },
+      };
+      iaDisponivel = true; iaViva = true; provedor = 'navegador'; primeiraChamadaIA = false;
+      aviso('Modelo de linguagem pronto: agora os decretos são interpretados por IA.', 3000);
+    } catch (e) {
+      console.error('Falha ao iniciar o modelo no navegador:', e && (e.message || e));
+      aviso('Não foi possível iniciar o modelo neste navegador. Seguindo com o interpretador local.', 4000);
+    } finally { baixando = false; atualizarMenuIA(); }
   }
   function tratarErroIA(e) {
     const code = e && e.code;
@@ -81,9 +127,11 @@
   }
   async function chamarIA(prompt) {
     const ctl = new AbortController();
-    const limite = primeiraChamadaIA ? 60000 : 15000;
-    const timer = setTimeout(() => ctl.abort(), limite);
-    try { return await sampleFn.json(prompt, { modelTier: 'quick', cache: false, signal: ctl.signal }); }
+    const limite = provedor === 'navegador' ? 40000 : (primeiraChamadaIA ? 60000 : 15000);
+    let timer = 0;
+    // o tempo limite é garantido por uma corrida: o jogo nunca fica esperando a IA, mesmo que ela ignore o cancelamento
+    const tempo = new Promise((_, rejeita) => { timer = setTimeout(() => { ctl.abort(); rejeita({ code: 'timeout', message: 'tempo esgotado' }); }, limite); });
+    try { return await Promise.race([sampleFn.json(prompt, { modelTier: 'quick', cache: false, signal: ctl.signal }), tempo]); }
     catch (e) { if (e && e.code === 'cancelled') throw { code: 'timeout', message: 'tempo esgotado' }; throw e; }
     finally { clearTimeout(timer); primeiraChamadaIA = false; }
   }
@@ -261,8 +309,13 @@
     const tok = J.token; J.pendente = true; el.enviar.disabled = true;
     definirStatus(iaViva ? 'A IA está interpretando o decreto…' : 'Interpretando decreto (modo local)…', 'aviso');
     try {
-      const r = await interpretarFrase(frase);
+      let r = await interpretarFrase(frase);
       if (!J || J.token !== tok || J.fim) return;
+      if (r.fonte === 'ia') {
+        // a IA pode errar (alvo inventado, valor fora do catálogo): se o validador achar um erro do modelo, o decreto é refeito pelo interpretador local
+        const pre = L.validarDecreto(r.bruto, J.estado);
+        if (!pre.aprovado && /não existe|malformado|protegid/.test(pre.motivo)) r = { bruto: L.interpretarLocal(frase, J.estado), fonte: 'local-fallback', ms: r.ms };
+      }
       executarDecreto(r.bruto, { frase, fonte: r.fonte, ms: r.ms });
     } finally { if (J && J.token === tok) { J.pendente = false; el.enviar.disabled = !J.papel.regenteHumano; } }
   }
@@ -501,6 +554,7 @@
   });
   $('fim-menu').addEventListener('click', voltarMenu);
   el.iaToggle.addEventListener('click', () => { iaViva = !iaViva; atualizarMenuIA(); });
+  el.iaBaixar.addEventListener('click', ativarIANavegador);
 
   // ---------- renderização ----------
   function rr(x, y, w, h, r) { ctx.beginPath(); ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath(); }
@@ -701,7 +755,7 @@
   window.__regencia = {
     L, estado: () => J, tela: () => tela, iniciarModo, iniciarNivel, decretar, executarDecreto, teclas,
     avancar(seg) { let n = Math.round(seg / FIXO); while (n-- > 0 && J && !J.fim) passoMundo(FIXO); }, desenhar: () => desenhar(0.016),
-    forcarIA(on, fn) { sampleFn = fn || sampleFn; iaDisponivel = !!sampleFn; iaViva = !!on && !!sampleFn; atualizarMenuIA(); },
+    ativarIANavegador, forcarIA(on, fn) { sampleFn = fn || sampleFn; iaDisponivel = !!sampleFn; iaViva = !!on && !!sampleFn; atualizarMenuIA(); },
   };
 
   setTela('menu');

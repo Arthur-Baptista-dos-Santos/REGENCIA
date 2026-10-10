@@ -15,13 +15,14 @@
 2. Como Regente, digite um decreto do seu jeito, por exemplo `transforma aquela porta ali num espelho` ou `chove acido perto do poco`, e aperte Enter.
 3. Como Explorador, use as setas e a seta para cima (pular) para chegar ao portal de saida.
 
-A versao publicada interpreta os decretos pelo interpretador local (palavras-chave e sinonimos). A IA ao vivo so existe em ambientes que a oferecem; quando nao esta disponivel, o jogo cai no modo local e continua 100% jogavel.
+Por padrao os decretos sao interpretados pelo **interpretador local** (palavras-chave e sinonimos), que e so codigo. Para usar **IA generativa de verdade**, clique em **Ativar IA no navegador** no menu: o jogo baixa uma vez (cerca de 1 GB, fica guardado no navegador) o modelo de linguagem Qwen2.5-1.5B-Instruct, que roda 100% no seu computador via WebGPU, sem servidor e sem enviar nada para a internet. Precisa de Chrome ou Edge recentes e de uma GPU compativel. Se o modelo errar (alvo inventado, resposta fora do formato) ou demorar mais de 40 segundos, o jogo usa o interpretador local naquele decreto e continua normalmente.
 
 ---
 
 ## `Tecnologias`
 
 ![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?logo=javascript&logoColor=black)
+![WebGPU](https://img.shields.io/badge/WebGPU-LLM%20no%20navegador-005A9C)
 ![HTML5 Canvas](https://img.shields.io/badge/HTML5-Canvas-E34F26?logo=html5&logoColor=white)
 ![Node.js](https://img.shields.io/badge/Node.js-testes%20nativos-339933?logo=nodedotjs&logoColor=white)
 ![Python](https://img.shields.io/badge/Python-3.11+-blue)
@@ -66,7 +67,7 @@ Controles: setas e seta para cima (ou `A` `D` `W`/`Espaco` fora da caixa de text
 Regente digita
     |
     Interpretacao
-        IA ao vivo (modelo de linguagem, resposta em JSON)  ou  interpretador local
+        IA ao vivo (modelo de linguagem no navegador via WebGPU, resposta em JSON)  ou  interpretador local
     |
     coagirDecreto()     schema, enum e limites do catalogo (5 funcoes)
     |
@@ -97,7 +98,7 @@ REGENCIA/
 
 | Modalidade | Onde entra | Detalhe |
 |---|---|---|
-| Texto | Interpreta os decretos do Regente e joga de Regente-IA | Modelo de linguagem com resposta estruturada; fallback local se indisponivel |
+| Texto | Interpreta os decretos do Regente e joga de Regente-IA | Qwen2.5-1.5B-Instruct (Alibaba) rodando no navegador via WebLLM e WebGPU; fallback local se indisponivel |
 | Imagem | Fundos do menu e do gameplay | Bing Image Creator (Microsoft), modelo MAI-Image-2.5-Flash |
 
 Personagens, cenario, efeitos visuais e sons sao procedurais (codigo), nao IA.
