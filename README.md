@@ -1,4 +1,5 @@
 [![Jogar agora](https://img.shields.io/badge/Jogar%20agora-arthur--baptista--dos--santos.github.io%2FREGENCIA-DCAB5C?logo=html5&logoColor=white)](https://arthur-baptista-dos-santos.github.io/REGENCIA/)
+[![Video](https://img.shields.io/badge/Video-apresentacao%20no%20YouTube-FF0000?logo=youtube&logoColor=white)](https://youtu.be/s1Bj-OcbRlQ)
 [![Deploy](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml/badge.svg)](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml)
 
 # `Regencia: Jogo Cooperativo com IA Generativa`
@@ -9,7 +10,7 @@
 
 ## `Jogar`
 
-**[Clique aqui para jogar](https://arthur-baptista-dos-santos.github.io/REGENCIA/)**: abre direto no navegador (computador, com teclado).
+**[Clique aqui para jogar](https://arthur-baptista-dos-santos.github.io/REGENCIA/)**: abre direto no navegador (computador, com teclado). Video de apresentacao: [youtu.be/s1Bj-OcbRlQ](https://youtu.be/s1Bj-OcbRlQ).
 
 1. Escolha **Treino livre** para testar sem tempo, ou **Campanha solo** para a experiencia completa.
 2. Como Regente, digite um decreto do seu jeito, por exemplo `transforma aquela porta ali num espelho` ou `chove acido perto do poco`, e aperte Enter.

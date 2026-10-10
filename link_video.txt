@@ -1,0 +1,8 @@
+Video de Apresentacao: Regencia, Checkpoint 5 (Vibe Coding e MVP)
+Disciplina: Processamento de Linguagem Natural, Chatbots e Agentes Virtuais
+Projeto: Regencia, jogo cooperativo com IA generativa
+
+Link: https://youtu.be/s1Bj-OcbRlQ
+
+Jogo online: https://arthur-baptista-dos-santos.github.io/REGENCIA/
+Repositorio: https://github.com/Arthur-Baptista-dos-Santos/REGENCIA
