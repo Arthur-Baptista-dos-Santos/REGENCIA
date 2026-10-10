@@ -1,0 +1,11 @@
+{
+  "name": "regencia-mvp",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Regência: MVP jogável (CP5, FIAP PLN). Lógica testável em Node; jogo em HTML5 Canvas.",
+  "scripts": {
+    "build": "node build.js",
+    "test": "node --test tests/logica.test.js",
+    "serve": "python -m http.server 8000 --directory web"
+  }
+}

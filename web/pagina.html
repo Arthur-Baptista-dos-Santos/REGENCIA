@@ -1,0 +1,161 @@
+<title>Regência MVP</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --bg:#0d0b12; --painel:#15121d; --painel-2:#1d1929; --linha:#312b44;
+    --tinta:#ece8f2; --mudo:#a29cb8; --latao:#dcab5c; --latao-escuro:#a8752f; --indigo:#96a2ec;
+    --perigo:#e6907e; --ok:#7ecaa4;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--tinta);font-family:'Public Sans',system-ui,sans-serif;-webkit-text-size-adjust:100%}
+  [hidden]{display:none!important}
+  #raiz{max-width:1120px;margin:0 auto;padding:12px 12px 28px}
+  #app{position:relative;width:100%;aspect-ratio:960/544;background:#0d0b12;border:1px solid var(--linha);border-radius:12px;overflow:hidden;user-select:none;-webkit-user-select:none}
+  canvas#tela{width:100%;height:100%;display:block;touch-action:none}
+  .painel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;padding:clamp(10px,3vw,28px);text-align:center;background:rgba(10,8,16,.72);backdrop-filter:blur(3px);overflow:auto}
+  .painel.cheio{background:linear-gradient(180deg,rgba(10,8,16,.55),rgba(10,8,16,.88))}
+  .cartao{width:min(560px,100%);display:flex;flex-direction:column;gap:12px;align-items:stretch;margin-block:auto}
+  h1.titulo{font-family:'Fraunces',Georgia,serif;font-weight:700;font-size:clamp(2.2rem,8vw,4.2rem);letter-spacing:.02em;margin:0;color:var(--latao);text-shadow:0 2px 24px rgba(220,171,92,.35);line-height:1}
+  h2{font-family:'Fraunces',Georgia,serif;font-weight:600;margin:0;font-size:clamp(1.25rem,3.4vw,1.8rem)}
+  p{margin:0;line-height:1.5}
+  .sub{color:var(--mudo);font-size:clamp(.85rem,1.9vw,1rem);font-style:italic;font-family:'Fraunces',Georgia,serif}
+  .mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+  button{font:inherit;color:var(--tinta);cursor:pointer}
+  .btn{background:var(--painel-2);border:1px solid var(--linha);border-radius:10px;padding:11px 16px;font-weight:600;font-size:clamp(.85rem,1.9vw,1rem);text-align:left;display:flex;justify-content:space-between;gap:10px;align-items:center;transition:transform .08s,border-color .15s,background .15s}
+  .btn small{font-weight:400;color:var(--mudo);font-size:.78em}
+  .btn:hover{border-color:var(--latao);background:#241f33}
+  .btn:active{transform:translateY(1px)}
+  .btn.primario{background:var(--latao);color:#1a1408;border-color:var(--latao)}
+  .btn.primario small{color:#4a3a14}
+  .btn.primario:hover{background:#ecbc6c}
+  .btn.centro{justify-content:center;text-align:center}
+  button:focus-visible,input:focus-visible{outline:2px solid var(--indigo);outline-offset:2px}
+  .linha-ia{display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:.82rem;color:var(--mudo);background:rgba(29,25,41,.8);border:1px solid var(--linha);border-radius:10px;padding:8px 12px;text-align:left}
+  .selo{display:inline-block;font-family:'IBM Plex Mono',monospace;font-size:.7rem;padding:2px 8px;border-radius:99px;border:1px solid var(--linha);color:var(--mudo)}
+  .selo.ia{color:#10261c;background:var(--ok);border-color:var(--ok)}
+  .selo.local{color:#1a1408;background:var(--latao);border-color:var(--latao)}
+  .selo.bot{color:#101530;background:var(--indigo);border-color:var(--indigo)}
+  .selo.ruim{color:#2a0f0a;background:var(--perigo);border-color:var(--perigo)}
+  .credito{font-size:.72rem;color:var(--mudo);line-height:1.45}
+  .lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;text-align:left;font-size:.88rem}
+  .lista li{display:flex;gap:8px;align-items:baseline;background:rgba(29,25,41,.7);border:1px solid var(--linha);border-radius:8px;padding:7px 10px}
+  .lista .frase{flex:1;min-width:0;overflow-wrap:anywhere}
+  .lista .meta{color:var(--mudo);font-size:.74rem;display:block;margin-top:2px;font-family:'IBM Plex Mono',monospace}
+  .grade-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .stat{background:var(--painel-2);border:1px solid var(--linha);border-radius:10px;padding:8px}
+  .stat b{display:block;font-family:'IBM Plex Mono',monospace;font-size:1.25rem;color:var(--latao)}
+  .stat span{font-size:.72rem;color:var(--mudo)}
+  .tecla{font-family:'IBM Plex Mono',monospace;font-size:.78rem;background:var(--painel-2);border:1px solid var(--linha);border-bottom-width:2px;border-radius:6px;padding:1px 7px}
+  .como{display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:left;font-size:.86rem}
+  .como>div{background:rgba(29,25,41,.7);border:1px solid var(--linha);border-radius:10px;padding:10px 12px}
+  .como h3{margin:0 0 4px;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--latao);font-family:'IBM Plex Mono',monospace}
+  @media (max-width:640px){.como{grid-template-columns:1fr}.credito{display:none}}
+  @media (max-width:860px){.painel{position:fixed;z-index:30;background:rgba(10,8,16,.94)}}
+
+  #barra{margin-top:10px;display:flex;flex-direction:column;gap:6px}
+  #linha-frase{display:flex;gap:8px;align-items:stretch}
+  #rotulo-frase{font-family:'IBM Plex Mono',monospace;font-size:.8rem;color:var(--latao);align-self:center;white-space:nowrap}
+  #frase{flex:1;min-width:0;background:var(--painel);border:1px solid var(--linha);border-radius:10px;color:var(--tinta);padding:12px 14px;font:inherit;font-size:1rem}
+  #frase:disabled{opacity:.45}
+  #enviar{background:var(--latao);color:#1a1408;border:0;border-radius:10px;padding:0 18px;font-weight:700}
+  #enviar:disabled{opacity:.45;cursor:not-allowed}
+  #status{min-height:1.3em;font-size:.82rem;color:var(--mudo);font-family:'IBM Plex Mono',monospace}
+  #status.ruim{color:var(--perigo)} #status.bom{color:var(--ok)} #status.aviso{color:var(--latao)}
+  #dicas{display:flex;flex-wrap:wrap;gap:6px}
+  .chip{background:var(--painel);border:1px solid var(--linha);border-radius:99px;color:var(--mudo);padding:5px 11px;font-size:.78rem}
+  .chip:hover{color:var(--tinta);border-color:var(--latao)}
+  #toque{display:none;gap:10px;justify-content:space-between;margin-top:10px}
+  #toque button{flex:1;height:56px;border-radius:12px;background:var(--painel-2);border:1px solid var(--linha);font-size:1.4rem;touch-action:none}
+  @media (pointer:coarse){#toque{display:flex}}
+  #aviso-toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);max-width:92%;background:rgba(21,18,29,.94);border:1px solid var(--latao);color:var(--tinta);padding:8px 14px;border-radius:10px;font-size:.84rem;pointer-events:none;text-align:center}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div id="raiz">
+  <div id="app">
+    <canvas id="tela" width="960" height="544" aria-label="Tela do jogo Regência" role="img"></canvas>
+
+    <section id="menu" class="painel cheio" aria-label="Menu principal">
+      <div class="cartao">
+        <h1 class="titulo">REGÊNCIA</h1>
+        <p class="sub">Você não joga contra o mundo, você dita as regras dele, em tempo real.</p>
+        <button class="btn primario" id="m-campanha"><span>Campanha solo <small>3 níveis · troca de papéis</small></span><span>▶</span></button>
+        <button class="btn" id="m-coop"><span>Co-op local (2 pessoas) <small>um no teclado, outro digita</small></span><span>⇄</span></button>
+        <button class="btn" id="m-treino"><span>Treino livre <small>sem tempo, teste decretos à vontade</small></span><span>∞</span></button>
+        <button class="btn" id="m-como"><span>Como jogar</span><span>?</span></button>
+        <div class="linha-ia"><span id="ia-status">Verificando IA ao vivo…</span><button class="btn centro" id="ia-toggle" hidden style="padding:6px 12px">Alternar</button></div>
+        <p class="credito">Projeto acadêmico FIAP · PLN (CP5). Arte de fundo gerada por IA (Bing Image Creator, ver relatório da CP4). Decretos interpretados por uma IA quando disponível; senão, pelo interpretador local.</p>
+      </div>
+    </section>
+
+    <section id="como" class="painel cheio" hidden aria-label="Como jogar">
+      <div class="cartao" style="width:min(720px,100%)">
+        <h2>Como jogar</h2>
+        <div class="como">
+          <div><h3>Explorador</h3><p>Chegue ao portal de saída. Mova com <span class="tecla">←</span> <span class="tecla">→</span> e pule com <span class="tecla">↑</span> (ou <span class="tecla">A</span> <span class="tecla">D</span> <span class="tecla">Espaço</span>). Pule em cima dos slimes para derrotá-los. Você tem 3 vidas.</p></div>
+          <div><h3>Regente</h3><p>Digite decretos em português, do seu jeito: <i>“transforma aquela porta num espelho”</i>, <i>“chove ácido perto do poço”</i>, <i>“cria espinhos na frente dele”</i>. Cada decreto gasta <b>Vontade</b>. Impeça a chegada antes do tempo acabar.</p></div>
+          <div><h3>O mundo é justo</h3><p>Um validador sem IA garante que sempre existe um caminho até a saída. Pedidos exagerados são atenuados; o impossível é recusado com explicação.</p></div>
+          <div><h3>IA ao vivo</h3><p>Com IA disponível, ela interpreta cada frase (e joga de Regente quando você é o Explorador). Sem IA, um interpretador local por palavras-chave assume, o jogo nunca trava.</p></div>
+        </div>
+        <button class="btn primario centro" id="como-voltar">Entendi</button>
+      </div>
+    </section>
+
+    <section id="intro" class="painel" hidden aria-label="Início do nível">
+      <div class="cartao">
+        <span class="selo mono" id="intro-nivel">Nível 1</span>
+        <h2 id="intro-nome">Corredor das Portas</h2>
+        <h1 class="titulo" id="intro-papel" style="font-size:clamp(1.6rem,5vw,2.6rem)">Você é o REGENTE</h1>
+        <p id="intro-texto" class="sub"></p>
+        <p id="intro-dica" class="credito"></p>
+        <button class="btn primario centro" id="intro-ok">Começar</button>
+      </div>
+    </section>
+
+    <section id="resumo" class="painel" hidden aria-label="Crônicas do nível">
+      <div class="cartao" style="width:min(640px,100%)">
+        <span class="selo mono">Crônicas</span>
+        <h2 id="res-titulo">Vitória</h2>
+        <p id="res-motivo" class="sub"></p>
+        <div class="grade-stats">
+          <div class="stat"><b id="res-pontos">0</b><span>pontos</span></div>
+          <div class="stat"><b id="res-decretos">0</b><span>decretos</span></div>
+          <div class="stat"><b id="res-tempo">0s</b><span>tempo</span></div>
+        </div>
+        <ul class="lista" id="res-lista"></ul>
+        <button class="btn primario centro" id="res-prox">Próximo nível</button>
+      </div>
+    </section>
+
+    <section id="fim" class="painel cheio" hidden aria-label="Fim da campanha">
+      <div class="cartao">
+        <h1 class="titulo" style="font-size:clamp(1.8rem,6vw,3rem)">Fim da jornada</h1>
+        <p class="sub" id="fim-titulo"></p>
+        <div class="grade-stats">
+          <div class="stat"><b id="fim-pontos">0</b><span id="fim-rotulo-pontos">pontos</span></div>
+          <div class="stat"><b id="fim-ia">0</b><span>decretos via IA ao vivo</span></div>
+          <div class="stat"><b id="fim-local">0</b><span>via interpretador local</span></div>
+        </div>
+        <p class="credito" id="fim-nota"></p>
+        <button class="btn primario centro" id="fim-menu">Voltar ao menu</button>
+      </div>
+    </section>
+
+    <div id="aviso-toast" hidden role="status"></div>
+  </div>
+
+  <div id="barra">
+    <div id="linha-frase">
+      <span id="rotulo-frase">Regente diz:</span>
+      <input id="frase" type="text" maxlength="160" autocomplete="off" spellcheck="false" placeholder="ex.: transforma aquela porta ali num espelho" aria-label="Decreto do Regente em linguagem natural">
+      <button id="enviar" type="button">Decretar</button>
+    </div>
+    <div id="status" role="status"></div>
+    <div id="dicas" aria-label="Sugestões de decreto"></div>
+  </div>
+  <div id="toque" aria-hidden="true"><button data-k="esq">◀</button><button data-k="pulo">⤒</button><button data-k="dir">▶</button></div>
+</div>
+
+<script src="js/logica.js"></script>
+<script src="js/jogo.js"></script>
