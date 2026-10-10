@@ -1,0 +1,40 @@
+[project]
+name = "regencia"
+version = "0.1.0"
+description = "Protótipo do interpretador de decretos (IA generativa como motor de interação) de Regência"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.6",
+    "anthropic>=0.40",
+    "pygame>=2.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "mypy>=1.10",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+
+# pygame não publica type stubs, e o loop de eventos/desenho é UI, não a lógica
+# central do jogo (essa continua 100% strict: esquemas.py, validador.py,
+# interprete_ia.py). Relaxar só aqui é decisão deliberada, não descuido.
+[[tool.mypy.overrides]]
+module = "pygame.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "regencia.jogo_pygame"
+disallow_untyped_calls = false
+warn_return_any = false
+
+[tool.pytest.ini_options]
+markers = ["integration: testes que exigem uma chave de API real (excluídos do loop rápido)"]
