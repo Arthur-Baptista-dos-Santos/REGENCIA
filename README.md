@@ -144,10 +144,22 @@ Distribuido sob a licenca MIT. Veja [LICENSE](LICENSE) para mais informacoes.
 
 ---
 
+## `Integrantes`
+
+| Nome | RM |
+|---|---|
+| Arthur Baptista dos Santos | 565346 |
+| João Pedro de Moura Dutra Franco | 561738 |
+| Nelson Félix Neto | 565603 |
+
+Inteligencia Artificial · FIAP 2025-2026
+
+---
+
 ## `Autor`
 
 **Arthur Baptista dos Santos**
-Inteligencia Artificial · FIAP 2025-2026
+RM 565346 · Inteligencia Artificial · FIAP 2025-2026
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-Arthur%20Baptista-0077B5?logo=linkedin)](https://linkedin.com/in/arthur-baptista-dos-santos)
 [![GitHub](https://img.shields.io/badge/GitHub-Arthur--Baptista--dos--Santos-181717?logo=github)](https://github.com/Arthur-Baptista-dos-Santos)
