@@ -100,6 +100,42 @@
         { id: 'saida', tipo: 'saida', rotulo: 'portal de saída', x: 27, y: 11, w: 2, h: 3 },
       ],
     },
+    {
+      id: 3, nome: 'Ponte Suspensa', tempo: 90, vidas: 3, spawn: { c: 2, r: 13 },
+      dica: 'Uma ponte alta, espinhos e um poço de ácido. O vidro e o gelo mudam a travessia.',
+      objetos: [
+        { id: 'chao_inicio', tipo: 'chao', rotulo: 'chão do começo', x: 0, y: 14, w: 6, h: 3 },
+        { id: 'plataforma_1', tipo: 'plataforma', rotulo: 'primeira plataforma', x: 7, y: 13, w: 3, h: 1 },
+        { id: 'plataforma_2', tipo: 'plataforma', rotulo: 'segunda plataforma', x: 11, y: 11, w: 3, h: 1 },
+        { id: 'ponte_alta', tipo: 'plataforma', rotulo: 'ponte alta', x: 15, y: 11, w: 7, h: 1 },
+        { id: 'espinhos_ponte', tipo: 'espinhos', rotulo: 'espinhos da ponte', x: 19, y: 10, w: 2, h: 1 },
+        { id: 'chao_meio', tipo: 'chao', rotulo: 'chão do meio', x: 23, y: 14, w: 3, h: 3 },
+        { id: 'poco_acido', tipo: 'poco', rotulo: 'poço de ácido', x: 26, y: 14, w: 2, h: 3 },
+        { id: 'chao_fim', tipo: 'chao', rotulo: 'chão do final', x: 28, y: 14, w: 2, h: 3 },
+        { id: 'slime_1', tipo: 'inimigo', rotulo: 'slime do chão do meio', x: 25, y: 13 },
+        { id: 'ck1', tipo: 'checkpoint', rotulo: 'marco 1', x: 12, y: 9, w: 1, h: 2 },
+        { id: 'ck2', tipo: 'checkpoint', rotulo: 'marco 2', x: 24, y: 12, w: 1, h: 2 },
+        { id: 'saida', tipo: 'saida', rotulo: 'portal de saída', x: 28, y: 11, w: 2, h: 3 },
+      ],
+    },
+    {
+      id: 4, nome: 'Torre do Decreto', tempo: 100, vidas: 3, spawn: { c: 2, r: 13 },
+      dica: 'Suba a torre e desça do outro lado. Cair no abismo custa uma vida.',
+      objetos: [
+        { id: 'chao_inicio', tipo: 'chao', rotulo: 'chão do começo', x: 0, y: 14, w: 5, h: 3 },
+        { id: 'torre_1', tipo: 'plataforma', rotulo: 'primeiro andar', x: 6, y: 12, w: 3, h: 1 },
+        { id: 'torre_2', tipo: 'plataforma', rotulo: 'segundo andar', x: 10, y: 10, w: 3, h: 1 },
+        { id: 'espinhos_torre', tipo: 'espinhos', rotulo: 'espinhos do segundo andar', x: 11, y: 9, w: 1, h: 1 },
+        { id: 'torre_3', tipo: 'plataforma', rotulo: 'terceiro andar', x: 14, y: 8, w: 3, h: 1 },
+        { id: 'torre_4', tipo: 'plataforma', rotulo: 'topo da torre', x: 18, y: 6, w: 3, h: 1 },
+        { id: 'descida_1', tipo: 'plataforma', rotulo: 'primeira descida', x: 22, y: 8, w: 3, h: 1 },
+        { id: 'descida_2', tipo: 'plataforma', rotulo: 'plataforma final', x: 26, y: 10, w: 4, h: 1 },
+        { id: 'slime_1', tipo: 'inimigo', rotulo: 'slime da descida', x: 23, y: 7 },
+        { id: 'ck1', tipo: 'checkpoint', rotulo: 'marco 1', x: 15, y: 6, w: 1, h: 2 },
+        { id: 'ck2', tipo: 'checkpoint', rotulo: 'marco 2', x: 26, y: 8, w: 1, h: 2 },
+        { id: 'saida', tipo: 'saida', rotulo: 'portal de saída', x: 28, y: 7, w: 2, h: 3 },
+      ],
+    },
   ];
 
   function novoExplorador(x, y) {
@@ -234,7 +270,13 @@
       }
       for (const v of vizinhos(g, n.c, n.r)) {
         const kk = k(v.c2, v.r2);
-        const nd = n.d + CUSTO_ACAO[v.acao] + (v.acao === 'pular' ? Math.abs(v.c2 - n.c) * 1.2 : 0);
+        // decolar colado num perigo logo à frente é arriscado (o Explorador tem largura): custo extra, sem proibir o caminho
+        let risco = 0;
+        if (v.acao === 'pular') {
+          const dir = Math.sign(v.c2 - n.c) || 1;
+          if (g.perigo[n.r][n.c + dir]) risco += 40; else if (g.perigo[n.r][n.c + 2 * dir]) risco += 12;
+        }
+        const nd = n.d + CUSTO_ACAO[v.acao] + (v.acao === 'pular' ? Math.abs(v.c2 - n.c) * 1.2 : 0) + risco;
         if (dist.has(kk) && dist.get(kk) <= nd) continue;
         dist.set(kk, nd); pai.set(kk, { de: n, acao: v.acao }); aberto.push({ c: v.c2, r: v.r2, d: nd });
       }

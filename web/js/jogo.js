@@ -7,7 +7,7 @@
   const $ = (id) => document.getElementById(id);
   const cv = $('tela'), ctx = cv.getContext('2d');
   const el = { menu: $('menu'), como: $('como'), intro: $('intro'), resumo: $('resumo'), fim: $('fim'), toast: $('aviso-toast'),
-    frase: $('frase'), enviar: $('enviar'), status: $('status'), dicas: $('dicas'), rotulo: $('rotulo-frase'), iaStatus: $('ia-status'), iaToggle: $('ia-toggle'), iaBaixar: $('ia-baixar') };
+    frase: $('frase'), enviar: $('enviar'), status: $('status'), dicas: $('dicas'), rotulo: $('rotulo-frase'), iaStatus: $('ia-status'), iaToggle: $('ia-toggle'), iaBaixar: $('ia-baixar'), config: $('config'), pausa: $('pausa') };
   const REDUZIR = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const FIXO = 1 / 120;
 
@@ -15,17 +15,40 @@
   const carregar = (src) => { const i = new Image(); i.onload = () => { i._ok = true; }; i.src = src; return i; };
   const imgMenu = carregar('assets/regente_concept.jpg'), imgJogo = carregar('assets/gameplay_scene.jpg');
 
+  // ---------- configurações e recordes (guardados só neste navegador) ----------
+  const API = window.RegenciaAPI;
+  const CHAVE_CONFIG = 'regencia.config.v1', CHAVE_RECORDES = 'regencia.recordes.v1';
+  function lerLS(chave, padrao) { try { const v = localStorage.getItem(chave); return Object.assign({}, padrao, v ? JSON.parse(v) : {}); } catch (e) { return Object.assign({}, padrao); } }
+  function gravarLS(chave, valor) { try { localStorage.setItem(chave, JSON.stringify(valor)); } catch (e) { /* armazenamento indisponível: segue sem salvar */ } }
+  const config = lerLS(CHAVE_CONFIG, { apiUrl: API ? API.URL_PADRAO : 'http://localhost:8000', apiKey: '', usarApi: false, volume: 0.8, tremor: true, musica: true });
+  const recordes = lerLS(CHAVE_RECORDES, { campanha: 0, partidas: 0, vitorias: 0 });
+
   // ---------- áudio (efeitos procedurais, não são IA) ----------
   let audio = null, mudo = false;
-  function iniciarAudio() { if (audio) return; try { audio = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { audio = null; } }
+  function iniciarAudio() { if (audio) { if (audio.state === 'suspended') audio.resume(); atualizarMusica(); return; } try { audio = new (window.AudioContext || window.webkitAudioContext)(); atualizarMusica(); } catch (e) { audio = null; } }
   function tom(f, dur, tipo, vol, ate, atraso) {
-    if (!audio || mudo) return;
+    if (!audio || mudo || config.volume <= 0) return;
     try {
       const t = audio.currentTime + (atraso || 0), o = audio.createOscillator(), g = audio.createGain();
       o.type = tipo || 'sine'; o.frequency.setValueAtTime(f, t); if (ate) o.frequency.exponentialRampToValueAtTime(ate, t + dur);
-      g.gain.setValueAtTime(vol || 0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      g.gain.setValueAtTime((vol || 0.05) * config.volume, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
       o.connect(g); g.connect(audio.destination); o.start(t); o.stop(t + dur + 0.02);
     } catch (e) { /* sem áudio: segue o jogo */ }
+  }
+  let musica = null;
+  /** Pad ambiente procedural bem baixo (não é IA). Liga e desliga conforme volume, mudo e configuração. */
+  function atualizarMusica() {
+    if (!audio) return;
+    const querer = config.musica && !mudo && config.volume > 0;
+    if (querer && !musica) {
+      try {
+        const g = audio.createGain(); g.gain.value = 0.0001; g.connect(audio.destination);
+        const oscs = [110, 164.81, 220].map((f, i) => { const o = audio.createOscillator(); o.type = i === 1 ? 'triangle' : 'sine'; o.frequency.value = f; o.detune.value = (i - 1) * 6; o.connect(g); o.start(); return o; });
+        const lfo = audio.createOscillator(), lg = audio.createGain(); lfo.frequency.value = 0.12; lg.gain.value = 0.01; lfo.connect(lg); lg.connect(g.gain); lfo.start();
+        musica = { g, lg, oscs };
+      } catch (e) { musica = null; }
+    }
+    if (musica) { musica.lg.gain.value = querer ? 0.01 : 0; musica.g.gain.setTargetAtTime(querer ? 0.03 * config.volume : 0.0001, audio.currentTime, 0.3); }
   }
   const SOM = {
     pulo: () => tom(380, 0.13, 'square', 0.03, 640), morte: () => { tom(220, 0.35, 'sawtooth', 0.05, 60); },
@@ -42,7 +65,7 @@
   function setTela(t) { tela = t; $('barra').hidden = t !== 'jogo'; }
   let J = null;           // partida
   let sampleFn = null, iaDisponivel = false, iaViva = false, primeiraChamadaIA = true;
-  let provedor = null;   // 'ambiente' (IA do ambiente de publicação) | 'navegador' (modelo local via WebGPU) | null
+  let provedor = null;   // 'api' (API FastAPI do grupo) | 'ambiente' (IA do ambiente de publicação) | 'navegador' (modelo local via WebGPU) | null
   let baixando = false;
   const teclas = { esq: false, dir: false, pulo: false };
   let particulas = [], tremor = 0, relogioVisual = 0;
@@ -50,7 +73,7 @@
   // ---------- utilidades de UI ----------
   const mostrar = (e) => { e.hidden = false; };
   const esconder = (e) => { e.hidden = true; };
-  function fecharPaineis() { [el.menu, el.como, el.intro, el.resumo, el.fim, el.toast].forEach(esconder); }
+  function fecharPaineis() { [el.menu, el.como, el.intro, el.resumo, el.fim, el.toast, el.config, el.pausa].forEach(esconder); }
   let toastTimer = 0;
   function aviso(txt, ms) { el.toast.textContent = txt; mostrar(el.toast); clearTimeout(toastTimer); toastTimer = setTimeout(() => esconder(el.toast), ms || 2400); }
   function definirStatus(txt, classe) { el.status.textContent = txt || ''; el.status.className = classe || ''; }
@@ -66,7 +89,7 @@
     el.iaBaixar.hidden = true; el.iaToggle.hidden = true;
     if (baixando) return;
     if (iaDisponivel) {
-      const nome = provedor === 'navegador' ? 'modelo de linguagem rodando neste navegador' : 'IA do ambiente';
+      const nome = provedor === 'api' ? 'API do grupo' + (sampleFn && sampleFn.saudeInfo ? ': ' + sampleFn.saudeInfo : '') : provedor === 'navegador' ? 'modelo de linguagem rodando neste navegador' : 'IA do ambiente';
       el.iaStatus.textContent = iaViva ? 'IA ao vivo: ligada (' + nome + ').' : 'IA ao vivo: desligada (interpretador local).';
       el.iaToggle.hidden = false; el.iaToggle.textContent = iaViva ? 'Desligar' : 'Ligar';
     } else if (temGPU) {
@@ -76,7 +99,20 @@
       el.iaStatus.textContent = 'IA ao vivo indisponível neste navegador (sem WebGPU): usando o interpretador local. O jogo funciona igual.';
     }
   }
+  /** Liga a IA via API do grupo: confere GET /health e passa a usar a rota POST /v1/ia-generativa/texto. */
+  async function ativarAPI(silencioso) {
+    if (!API) return false;
+    const cliente = API.criarClienteAPI({ url: config.apiUrl, chave: config.apiKey });
+    const s = await cliente.saude();
+    if (!s.ok) { if (!silencioso) aviso('API inacessível em ' + cliente.url + '. Confira se o back-end está rodando.', 4000); return false; }
+    cliente.saudeInfo = s.provedor + ' · ' + s.modelo;
+    sampleFn = cliente; iaDisponivel = true; iaViva = true; provedor = 'api'; primeiraChamadaIA = false;
+    if (!silencioso) aviso('API conectada (' + cliente.saudeInfo + '). Os decretos agora passam por ela.', 3500);
+    atualizarMenuIA();
+    return true;
+  }
   async function iniciarIA() {
+    if (config.usarApi && config.apiKey) { try { if (await ativarAPI(true)) return; } catch (e) { /* segue para as outras opções */ } }
     try {
       if (window.claude && typeof window.claude.use === 'function') {
         const s = await window.claude.use('sample');
@@ -121,19 +157,65 @@
     const code = e && e.code;
     if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(code)) {
       iaViva = false; atualizarMenuIA(); aviso('IA ao vivo recusada/indisponível: seguindo com o interpretador local.', 3200);
-    } else if (code === 'rate_limited') aviso('Limite de uso da IA atingido: usei o interpretador local neste decreto.', 3200);
+    } else if (code === 'api_auth') aviso('A API recusou a chave (X-API-Key). Confira em Configurações. Usei o interpretador local.', 4200);
+    else if (code === 'api_rede') aviso('Não foi possível falar com a API. Usei o interpretador local neste decreto.', 3500);
+    else if (code === 'api_provedor_fora') aviso('A API está no ar, mas o serviço de IA por trás dela não respondeu. Usei o interpretador local.', 4200);
+    else if (code === 'rate_limited') aviso('Limite de uso da IA atingido: usei o interpretador local neste decreto.', 3200);
     else if (code === 'timeout') aviso('A IA demorou demais: usei o interpretador local neste decreto.', 3000);
     else aviso('Resposta da IA inválida (' + (code || 'erro') + '): usei o interpretador local.', 3000);
   }
   async function chamarIA(prompt) {
     const ctl = new AbortController();
-    const limite = provedor === 'navegador' ? 40000 : (primeiraChamadaIA ? 60000 : 15000);
+    const limite = provedor === 'navegador' ? 40000 : provedor === 'api' ? 30000 : (primeiraChamadaIA ? 60000 : 15000);
     let timer = 0;
     // o tempo limite é garantido por uma corrida: o jogo nunca fica esperando a IA, mesmo que ela ignore o cancelamento
     const tempo = new Promise((_, rejeita) => { timer = setTimeout(() => { ctl.abort(); rejeita({ code: 'timeout', message: 'tempo esgotado' }); }, limite); });
     try { return await Promise.race([sampleFn.json(prompt, { modelTier: 'quick', cache: false, signal: ctl.signal }), tempo]); }
     catch (e) { if (e && e.code === 'cancelled') throw { code: 'timeout', message: 'tempo esgotado' }; throw e; }
     finally { clearTimeout(timer); primeiraChamadaIA = false; }
+  }
+
+  // ---------- pausa e configurações ----------
+  let configVoltar = 'menu';
+  function pausar(v) {
+    if (!J || tela !== 'jogo' || J.fim) return;
+    J.pausado = !!v;
+    if (v) { mostrar(el.pausa); el.frase.blur(); } else { esconder(el.pausa); if (J.papel.regenteHumano) el.frase.focus(); }
+  }
+  function abrirConfig(voltar) {
+    configVoltar = voltar;
+    $('cfg-url').value = config.apiUrl; $('cfg-key').value = config.apiKey; $('cfg-usar').checked = !!config.usarApi;
+    $('cfg-volume').value = String(Math.round(config.volume * 100)); $('cfg-musica').checked = !!config.musica; $('cfg-tremor').checked = !!config.tremor;
+    $('cfg-status').textContent = ''; $('cfg-status').className = 'credito';
+    esconder(el.menu); esconder(el.pausa); mostrar(el.config);
+  }
+  async function fecharConfig() {
+    const url = API ? API.normalizarUrl($('cfg-url').value) : '';
+    config.apiUrl = url || (API ? API.URL_PADRAO : 'http://localhost:8000'); config.apiKey = $('cfg-key').value.trim(); config.usarApi = $('cfg-usar').checked;
+    config.volume = Math.max(0, Math.min(1, Number($('cfg-volume').value) / 100)); config.musica = $('cfg-musica').checked; config.tremor = $('cfg-tremor').checked;
+    gravarLS(CHAVE_CONFIG, config); atualizarMusica();
+    esconder(el.config);
+    if (configVoltar === 'pausa') mostrar(el.pausa); else { mostrar(el.menu); }
+    if (config.usarApi && config.apiKey) await ativarAPI(false);
+    else if (provedor === 'api') { sampleFn = null; iaDisponivel = false; iaViva = false; provedor = null; await iniciarIA(); }
+    atualizarMenuIA();
+  }
+  /** Botão "Testar conexão": confere /health e faz uma chamada autenticada de verdade à rota de texto. */
+  async function testarAPI() {
+    const st = $('cfg-status'); st.className = 'credito';
+    const cliente = API.criarClienteAPI({ url: API.normalizarUrl($('cfg-url').value), chave: $('cfg-key').value.trim() });
+    st.textContent = 'Testando ' + cliente.url + '…';
+    const s = await cliente.saude();
+    if (!s.ok) { st.className = 'credito ruim'; st.textContent = 'API inacessível (' + s.motivo + '). Confira se o back-end está rodando e a URL.'; return; }
+    try {
+      const t0 = performance.now();
+      await cliente.json('Responda apenas com o objeto JSON {"ok": true}.', {});
+      st.className = 'credito ok';
+      st.textContent = 'Conexão e autenticação OK. Provedor: ' + s.provedor + ' · ' + s.modelo + '. Resposta em ' + ((performance.now() - t0) / 1000).toFixed(1) + ' s.';
+    } catch (e) {
+      st.className = 'credito ruim';
+      st.textContent = e.code === 'api_auth' ? 'API no ar, mas a chave foi recusada (401). Confira a API Key.' : e.code === 'api_provedor_fora' ? 'API no ar, mas o serviço de IA por trás dela está fora (503).' : 'A API respondeu com erro (' + (e.code || 'desconhecido') + ').';
+    }
   }
 
   // ---------- papéis / fluxo ----------
@@ -182,6 +264,8 @@
     ['transforma aquela porta ali num espelho', 'chove ácido perto do poço', 'coloca espinhos na frente dele', 'aumenta a gravidade dele', 'transforma o chão do final em gelo'],
     ['coloca um monstro na frente dele', 'transforma a plataforma em vidro', 'o vento sopra contra ele', 'neblina cobre tudo', 'some com os espinhos'],
     ['cria um muro na frente dele', 'transforma o chão do meio em lava', 'chove ácido perto do poço', 'deixa ele bem devagar', 'faz o slime ficar gigante'],
+    ['transforma a ponte alta em vidro', 'coloca um monstro na frente dele', 'chove ácido perto do poço', 'transforma o chão do final em gelo', 'o vento sopra contra ele'],
+    ['aumenta a gravidade dele', 'transforma o topo da torre em vidro', 'some com os espinhos', 'o vento sopra contra ele', 'neblina cobre tudo'],
   ];
   function montarDicas(idx, reg) {
     el.dicas.textContent = '';
@@ -210,7 +294,8 @@
     if (vencedor === 'explorador') SOM.vitoria(); else SOM.derrota();
     setTimeout(() => { if (J && J.fim && tela === 'jogo') abrirResumo(); }, 1100);
   }
-  function selosDe(fonte) {
+  function selosDe(fonte, detalhe) {
+    if (fonte === 'api') return ['API' + (detalhe ? ' ' + detalhe : ''), 'ia'];
     if (fonte === 'ia') return ['IA ao vivo', 'ia'];
     if (fonte === 'regente-ia') return ['Regente-IA ao vivo', 'ia'];
     if (fonte === 'regente-local') return ['Regente-IA · local', 'bot'];
@@ -229,7 +314,7 @@
     const lista = J.cronicas.slice(-7);
     if (!lista.length) { const li = document.createElement('li'); li.textContent = 'Nenhum decreto neste nível.'; ul.appendChild(li); }
     for (const c of lista) {
-      const li = document.createElement('li'); const [txt, cls] = selosDe(c.fonte);
+      const li = document.createElement('li'); const [txt, cls] = selosDe(c.fonte, c.detalhe);
       const s = document.createElement('span'); s.className = 'selo ' + cls; s.textContent = txt;
       const f = document.createElement('span'); f.className = 'frase'; f.textContent = '“' + c.frase + '”';
       const m = document.createElement('span'); m.className = 'meta';
@@ -242,8 +327,8 @@
   }
   function abrirFim() {
     setTela('menu'); fecharPaineis();
-    const ia = J.cronicasTotal.filter((c) => c.fonte === 'ia' || c.fonte === 'regente-ia').length;
-    const loc = J.cronicasTotal.filter((c) => !(c.fonte === 'ia' || c.fonte === 'regente-ia')).length;
+    const ia = J.cronicasTotal.filter((c) => c.fonte === 'ia' || c.fonte === 'api' || c.fonte === 'regente-ia').length;
+    const loc = J.cronicasTotal.filter((c) => !(c.fonte === 'ia' || c.fonte === 'api' || c.fonte === 'regente-ia')).length;
     $('fim-ia').textContent = String(ia); $('fim-local').textContent = String(loc);
     if (J.modo === 'coop') {
       $('fim-pontos').textContent = J.placar.p1 + ' × ' + J.placar.p2; $('fim-rotulo-pontos').textContent = 'Jogador 1 × Jogador 2';
@@ -252,10 +337,18 @@
       $('fim-pontos').textContent = String(J.placar.humano); $('fim-rotulo-pontos').textContent = 'pontos';
       const p = J.placar.humano; $('fim-titulo').textContent = p >= 380 ? 'Regente Supremo' : p >= 260 ? 'Mestre dos Decretos' : p >= 140 ? 'Aprendiz do Trono' : 'Súdito Curioso';
     }
+    let novoRecorde = false;
+    if (J.modo === 'campanha') {
+      recordes.partidas++;
+      if (J.placar.humano > recordes.campanha) { recordes.campanha = J.placar.humano; novoRecorde = true; }
+      gravarLS(CHAVE_RECORDES, recordes);
+    }
+    $('fim-recorde').textContent = J.modo === 'campanha' ? (novoRecorde ? 'Novo recorde da campanha!' : 'Recorde da campanha: ' + recordes.campanha + ' pontos') : '';
     $('fim-nota').textContent = ia ? 'Decretos interpretados ao vivo por IA. Cada resposta passou pelo validador determinístico antes de virar efeito.' : 'Todos os decretos foram interpretados pelo modo local (sem IA ao vivo nesta sessão).';
     mostrar(el.fim);
   }
-  function voltarMenu() { fecharPaineis(); setTela('menu'); J = null; particulas = []; el.frase.blur(); el.frase.disabled = true; el.enviar.disabled = true; el.dicas.textContent = ''; definirStatus('', ''); mostrar(el.menu); atualizarMenuIA(); }
+  function textoRecorde() { return recordes.campanha ? 'Recorde da campanha: ' + recordes.campanha + ' pontos em ' + recordes.partidas + (recordes.partidas === 1 ? ' partida' : ' partidas') : ''; }
+  function voltarMenu() { fecharPaineis(); $('m-recorde').textContent = textoRecorde(); setTela('menu'); J = null; particulas = []; el.frase.blur(); el.frase.disabled = true; el.enviar.disabled = true; el.dicas.textContent = ''; definirStatus('', ''); mostrar(el.menu); atualizarMenuIA(); }
 
   // ---------- decretos ----------
   async function interpretarFrase(frase) {
@@ -266,7 +359,8 @@
         const bruto = await chamarIA(L.montarPromptInterprete(frase, S));
         const c = L.coagirDecreto(bruto);
         if (!c.ok) throw { code: 'invalid_schema', message: c.erro };
-        return { bruto: c.decreto, fonte: 'ia', ms: Math.round(performance.now() - t0) };
+        const meta = sampleFn.ultimoMeta;
+        return { bruto: c.decreto, fonte: provedor === 'api' ? 'api' : 'ia', detalhe: meta ? meta.modelo : '', ms: Math.round(performance.now() - t0) };
       } catch (e) { tratarErroIA(e); }
     }
     return { bruto: L.interpretarLocal(frase, S), fonte: iaViva ? 'local-fallback' : 'local', ms: 0 };
@@ -285,7 +379,7 @@
   function executarDecreto(bruto, meta) {
     const S = J.estado;
     const v = L.validarDecreto(bruto, S);
-    const entrada = { frase: meta.frase, fonte: meta.fonte, ms: meta.ms || 0, t: Math.round(S.relogio) };
+    const entrada = { frase: meta.frase, fonte: meta.fonte, detalhe: meta.detalhe || '', ms: meta.ms || 0, t: Math.round(S.relogio) };
     if (!v.aprovado) {
       Object.assign(entrada, { resultado: 'rejeitado', motivo: v.motivo }); J.log.push(entrada); J.cronicas.push(entrada);
       SOM.nao(); definirStatus('✖ ' + v.motivo, 'ruim'); return false;
@@ -299,7 +393,7 @@
     const ef = L.aplicarDecreto(S, v.decreto);
     Object.assign(entrada, { resultado: v.ajustes.length ? 'ajustado' : 'aplicado', resumo: ef.resumo, ajustes: v.ajustes, custo });
     J.log.push(entrada); J.cronicas.push(entrada);
-    const c = centroDoEfeito(ef); explodir(c.x, c.y, '#dcab5c', 26); SOM.decreto(); if (!REDUZIR) tremor = Math.max(tremor, 3);
+    const c = centroDoEfeito(ef); explodir(c.x, c.y, '#dcab5c', 26); SOM.decreto(); if (config.tremor && !REDUZIR) tremor = Math.max(tremor, 3);
     definirStatus('✔ ' + ef.resumo + (v.ajustes.length ? '  (' + v.ajustes.join('; ') + ')' : '') + '  −' + custo + ' Vontade', 'bom');
     return true;
   }
@@ -311,12 +405,12 @@
     try {
       let r = await interpretarFrase(frase);
       if (!J || J.token !== tok || J.fim) return;
-      if (r.fonte === 'ia') {
+      if (r.fonte === 'ia' || r.fonte === 'api') {
         // a IA pode errar (alvo inventado, valor fora do catálogo): se o validador achar um erro do modelo, o decreto é refeito pelo interpretador local
         const pre = L.validarDecreto(r.bruto, J.estado);
         if (!pre.aprovado && /não existe|malformado|protegid/.test(pre.motivo)) r = { bruto: L.interpretarLocal(frase, J.estado), fonte: 'local-fallback', ms: r.ms };
       }
-      executarDecreto(r.bruto, { frase, fonte: r.fonte, ms: r.ms });
+      executarDecreto(r.bruto, { frase, fonte: r.fonte, ms: r.ms, detalhe: r.detalhe });
     } finally { if (J && J.token === tok) { J.pendente = false; el.enviar.disabled = !J.papel.regenteHumano; } }
   }
   async function pensarRegenteIA(dt) {
@@ -348,7 +442,7 @@
     const S = J.estado, e = S.explorador;
     if (e.morto > 0 || e.invul > 0 || J.fim) return;
     if (J.modo !== 'treino') S.vidas--;
-    explodir(e.x + e.w / 2, e.y + e.h / 2, '#e6907e', 30); SOM.morte(); if (!REDUZIR) tremor = 8;
+    explodir(e.x + e.w / 2, e.y + e.h / 2, '#e6907e', 30); SOM.morte(); if (config.tremor && !REDUZIR) tremor = 8;
     e.morto = 0.9; e.vx = 0; e.vy = 0; e.exposicao = 0; J.ultimaMorte = razao;
     definirStatus('☠ ' + razao + (J.modo === 'treino' ? '' : ', vidas: ' + Math.max(0, S.vidas)), 'ruim');
     if (S.vidas <= 0 && J.modo !== 'treino') terminar('regente', 'O Explorador ficou sem vidas (' + razao + ').');
@@ -521,9 +615,9 @@
       else if (k === 'Enter' && J.papel.regenteHumano) { el.frase.focus(); ev.preventDefault(); }
       else if ((k === 'r' || k === 'R') && J.modo === 'treino') { iniciarNivel(); }
       else if (J.modo === 'treino' && ['1', '2', '3'].includes(k)) { J.nivelIdx = Number(k) - 1; iniciarNivel(); }
-      else if (k === 'm' || k === 'M') { mudo = !mudo; aviso(mudo ? 'Som desligado' : 'Som ligado', 1200); }
-      else if (k === 'p' || k === 'P' || k === 'Escape') { J.pausado = !J.pausado; aviso(J.pausado ? 'PAUSADO (P continua)' : 'Continuando', 1200); }
-    } else if (k === 'Escape') el.frase.blur();
+      else if (k === 'm' || k === 'M') { mudo = !mudo; atualizarMusica(); aviso(mudo ? 'Som desligado' : 'Som ligado', 1200); }
+      else if (k === 'p' || k === 'P' || k === 'Escape') { pausar(!J.pausado); }
+    } else if (k === 'Escape') { pausar(!J.pausado); }
   });
   window.addEventListener('keyup', (ev) => {
     const k = ev.key;
@@ -553,6 +647,13 @@
     J.nivelIdx++; abrirIntro();
   });
   $('fim-menu').addEventListener('click', voltarMenu);
+  $('m-config').addEventListener('click', () => abrirConfig('menu'));
+  $('cfg-fechar').addEventListener('click', fecharConfig);
+  $('cfg-testar').addEventListener('click', testarAPI);
+  $('p-continuar').addEventListener('click', () => pausar(false));
+  $('p-reiniciar').addEventListener('click', () => { pausar(false); iniciarNivel(); });
+  $('p-config').addEventListener('click', () => abrirConfig('pausa'));
+  $('p-menu').addEventListener('click', () => { pausar(false); voltarMenu(); });
   el.iaToggle.addEventListener('click', () => { iaViva = !iaViva; atualizarMenuIA(); });
   el.iaBaixar.addEventListener('click', ativarIANavegador);
 
@@ -705,7 +806,7 @@
     if (ultimos.length) {
       const h = 14 + ultimos.length * 34; ctx.fillStyle = 'rgba(13,11,18,.78)'; rr(LARGURA - 346, 8, 336, h, 10); ctx.fill();
       ultimos.forEach((c, i) => {
-        const yy = 26 + i * 34; const [nome, cls] = selosDe(c.fonte);
+        const yy = 26 + i * 34; const [nome, cls] = selosDe(c.fonte, c.detalhe);
         ctx.font = '600 11px "IBM Plex Mono", monospace'; ctx.fillStyle = cls === 'ia' ? '#7ecaa4' : cls === 'bot' ? '#96a2ec' : '#dcab5c';
         const larguraSelo = ctx.measureText('[' + nome + '] ').width; ctx.fillText('[' + nome + ']', LARGURA - 336, yy);
         ctx.font = '500 12px "Public Sans", system-ui, sans-serif'; ctx.fillStyle = '#ece8f2'; ctx.fillText(fitTexto('“' + c.frase + '”', 318 - larguraSelo), LARGURA - 336 + larguraSelo, yy);
@@ -720,7 +821,7 @@
     if (leg) { ctx.font = '500 15px "Public Sans", system-ui, sans-serif'; const w = Math.min(760, ctx.measureText(leg).width + 28); ctx.fillStyle = 'rgba(13,11,18,.82)'; rr(LARGURA / 2 - w / 2, ALTURA - 52, w, 30, 15); ctx.fill(); ctx.fillStyle = '#ece8f2'; ctx.textAlign = 'center'; ctx.fillText(fitTexto(leg, 730), LARGURA / 2, ALTURA - 32); }
     if (!J.papel.exploradorHumano && S.relogio < J.bot.inicio) { ctx.textAlign = 'center'; ctx.font = '700 18px "IBM Plex Mono", monospace'; ctx.fillStyle = '#96a2ec'; ctx.fillText('O Explorador entra em ' + Math.ceil(J.bot.inicio - S.relogio) + 's, prepare seus decretos!', LARGURA / 2, 84); }
     if (J.pendente || (J.regenteIA && J.regenteIA.ocupado)) { ctx.textAlign = 'center'; ctx.font = '600 13px "IBM Plex Mono", monospace'; ctx.fillStyle = '#dcab5c'; ctx.fillText((J.pendente ? 'interpretando decreto' : 'Regente-IA pensando') + '.'.repeat(1 + Math.floor(t * 3) % 3), LARGURA / 2, 56); }
-    if (J.pausado) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, 0, LARGURA, ALTURA); ctx.fillStyle = '#ece8f2'; ctx.textAlign = 'center'; ctx.font = '700 40px "Fraunces", serif'; ctx.fillText('PAUSADO', LARGURA / 2, ALTURA / 2); }
+    if (J.pausado) { ctx.fillStyle = 'rgba(0,0,0,.55)'; ctx.fillRect(0, 0, LARGURA, ALTURA); }
     if (J.fim) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillRect(0, 0, LARGURA, ALTURA); }
     ctx.textAlign = 'left';
   }
@@ -759,6 +860,7 @@
   };
 
   setTela('menu');
+  $('m-recorde').textContent = textoRecorde();
   atualizarMenuIA();
   iniciarIA();
 })();

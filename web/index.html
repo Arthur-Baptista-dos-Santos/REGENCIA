@@ -1,5 +1,20 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="Jogo cooperativo em que o Regente dita decretos em português e uma IA os transforma em efeitos de jogo. Jogue no navegador, sem instalar nada.">
+<meta name="theme-color" content="#0d0b12">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Regência">
+<meta property="og:description" content="Jogo cooperativo em que o Regente dita decretos em português e uma IA os transforma em efeitos de jogo. Jogue no navegador, sem instalar nada.">
+<meta property="og:url" content="https://arthur-baptista-dos-santos.github.io/REGENCIA/">
+<meta property="og:image" content="https://arthur-baptista-dos-santos.github.io/REGENCIA/assets/og.png">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+</head><body>
 <title>Regência MVP</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500..700&family=Public+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
@@ -71,6 +86,14 @@
   #toque button{flex:1;height:56px;border-radius:12px;background:var(--painel-2);border:1px solid var(--linha);font-size:1.4rem;touch-action:none}
   @media (pointer:coarse){#toque{display:flex}}
   #aviso-toast{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);max-width:92%;background:rgba(21,18,29,.94);border:1px solid var(--latao);color:var(--tinta);padding:8px 14px;border-radius:10px;font-size:.84rem;pointer-events:none;text-align:center}
+
+  .grupo-cfg{display:flex;flex-direction:column;gap:8px;text-align:left;background:rgba(29,25,41,.7);border:1px solid var(--linha);border-radius:10px;padding:10px 12px}
+  .grupo-cfg h3{margin:0;font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--latao);font-family:'IBM Plex Mono',monospace}
+  .grupo-cfg label{display:flex;flex-direction:column;gap:4px;font-size:.84rem;color:var(--mudo)}
+  .grupo-cfg label.check{flex-direction:row;align-items:center;gap:8px;color:var(--tinta)}
+  .grupo-cfg input[type=text],.grupo-cfg input[type=password]{background:var(--painel);border:1px solid var(--linha);border-radius:8px;color:var(--tinta);padding:9px 10px;font:inherit;font-size:.92rem}
+  .grupo-cfg input[type=range]{width:100%;accent-color:var(--latao)}
+  #cfg-status.ok{color:var(--ok)} #cfg-status.ruim{color:var(--perigo)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 
@@ -82,11 +105,13 @@
       <div class="cartao">
         <h1 class="titulo">REGÊNCIA</h1>
         <p class="sub">Você não joga contra o mundo, você dita as regras dele, em tempo real.</p>
-        <button class="btn primario" id="m-campanha"><span>Campanha solo <small>3 níveis · troca de papéis</small></span><span>▶</span></button>
+        <button class="btn primario" id="m-campanha"><span>Campanha solo <small>5 níveis · troca de papéis</small></span><span>▶</span></button>
         <button class="btn" id="m-coop"><span>Co-op local (2 pessoas) <small>um no teclado, outro digita</small></span><span>⇄</span></button>
         <button class="btn" id="m-treino"><span>Treino livre <small>sem tempo, teste decretos à vontade</small></span><span>∞</span></button>
         <button class="btn" id="m-como"><span>Como jogar</span><span>?</span></button>
+        <button class="btn" id="m-config"><span>Configurações <small>API de IA, som e efeitos</small></span><span>⚙</span></button>
         <div class="linha-ia"><span id="ia-status">Verificando IA ao vivo…</span><button class="btn centro" id="ia-toggle" hidden style="padding:6px 12px">Alternar</button><button class="btn primario centro" id="ia-baixar" hidden style="padding:6px 12px">Ativar IA no navegador</button></div>
+        <p class="credito" id="m-recorde"></p>
         <p class="credito">Projeto acadêmico FIAP · PLN (CP5). Arte de fundo gerada por IA (Bing Image Creator, ver relatório da CP4). Decretos interpretados por uma IA quando disponível; senão, pelo interpretador local.</p>
       </div>
     </section>
@@ -139,8 +164,41 @@
           <div class="stat"><b id="fim-ia">0</b><span>decretos via IA ao vivo</span></div>
           <div class="stat"><b id="fim-local">0</b><span>via interpretador local</span></div>
         </div>
+        <p class="credito" id="fim-recorde"></p>
         <p class="credito" id="fim-nota"></p>
         <button class="btn primario centro" id="fim-menu">Voltar ao menu</button>
+      </div>
+    </section>
+
+    <section id="config" class="painel cheio" hidden aria-label="Configurações">
+      <div class="cartao" style="width:min(640px,100%)">
+        <h2>Configurações</h2>
+        <div class="grupo-cfg">
+          <h3>IA via API do grupo (back-end FastAPI)</h3>
+          <label>URL da API <input id="cfg-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="http://localhost:8000"></label>
+          <label>API Key (header X-API-Key) <input id="cfg-key" type="password" autocomplete="off" spellcheck="false" placeholder="a mesma API_KEY do .env do back-end"></label>
+          <label class="check"><input id="cfg-usar" type="checkbox"> Usar a API para interpretar os decretos</label>
+          <button class="btn centro" id="cfg-testar" type="button">Testar conexão</button>
+          <p id="cfg-status" class="credito" role="status"></p>
+          <p class="credito">A chave fica guardada só neste navegador e é enviada apenas para a URL acima.</p>
+        </div>
+        <div class="grupo-cfg">
+          <h3>Som e efeitos</h3>
+          <label>Volume <input id="cfg-volume" type="range" min="0" max="100" step="5"></label>
+          <label class="check"><input id="cfg-musica" type="checkbox"> Música ambiente</label>
+          <label class="check"><input id="cfg-tremor" type="checkbox"> Tremor de tela</label>
+        </div>
+        <button class="btn primario centro" id="cfg-fechar" type="button">Salvar e voltar</button>
+      </div>
+    </section>
+
+    <section id="pausa" class="painel" hidden aria-label="Pausa">
+      <div class="cartao">
+        <h2>Pausado</h2>
+        <button class="btn primario" id="p-continuar" type="button"><span>Continuar</span><span>▶</span></button>
+        <button class="btn" id="p-reiniciar" type="button"><span>Reiniciar o nível</span><span>↺</span></button>
+        <button class="btn" id="p-config" type="button"><span>Configurações</span><span>⚙</span></button>
+        <button class="btn" id="p-menu" type="button"><span>Sair para o menu</span><span>⌂</span></button>
       </div>
     </section>
 
@@ -160,6 +218,12 @@
 </div>
 
 <script src="js/logica.js"></script>
+<script src="js/api.js"></script>
 <script src="js/jogo.js"></script>
 
+<script>
+if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { /* sem offline: o jogo segue normal */ }); });
+}
+</script>
 </body></html>

@@ -177,3 +177,20 @@ test('chuva ácida nunca cobre o Explorador/ponto de renascimento: área é redu
     assert.ok(r.ajustes.some((a) => /zona de graça/.test(a)));
   } else assert.match(r.motivo, /zona de graça/);
 });
+
+test('a campanha tem 5 niveis e todos tem caminho do spawn ate a saida', () => {
+  assert.equal(L.NIVEIS.length, 5);
+  for (let i = 0; i < L.NIVEIS.length; i++) {
+    const s = novo(i);
+    assert.ok(L.caminhoAteSaida(s, s.objetos, s.spawn), 'nivel ' + (i + 1));
+  }
+});
+
+test('planejador nao escolhe decolar colado nos espinhos quando existe um ponto de salto seguro (nivel Ponte Suspensa)', () => {
+  const s = novo(3), g = L.criarGrade(s.objetos);
+  const caminho = L.caminhoAteSaida(s, s.objetos, s.spawn);
+  for (const passo of caminho.filter((p) => p.acao === 'pular')) {
+    const dir = Math.sign(passo.c2 - passo.c) || 1;
+    assert.ok(!g.perigo[passo.r][passo.c + dir], 'decolagem colada em perigo: ' + passo.c + ',' + passo.r);
+  }
+});
