@@ -1,0 +1,28 @@
+# Registro real de chamadas a API (executado em 15/10/2026 22:11); a chave foi substituida por $API_KEY
+# Provedor: Ollama local, modelo qwen2.5:7b. API: uvicorn app.main:app --port 8000
+
+$ curl -s http://localhost:8000/health
+{"status":"ok","provedor":"ollama","modelo":"qwen2.5:7b","versao":"1.0.0"}
+
+$ curl -i -X POST http://localhost:8000/v1/ia-generativa/texto -H "Content-Type: application/json" -d "{\"prompt\":\"oi\"}"   # sem chave
+HTTP/1.1 401 Unauthorized
+{"detail":"API Key ausente ou inválida. Envie o header X-API-Key."}
+
+
+$ curl -i ... -H "X-API-Key: chave-errada"
+HTTP/1.1 401 Unauthorized
+{"detail":"API Key ausente ou inválida. Envie o header X-API-Key."}
+
+
+$ curl -i ... -H "X-API-Key: $API_KEY" -d "{\"prompt\":\"\"}"   # prompt vazio
+HTTP/1.1 422 Unprocessable Content
+
+$ curl -i ... -H "X-API-Key: $API_KEY" -d @corpo.json   # prompt real do jogo (estado do nivel + decreto)
+HTTP/1.1 200 OK
+{"texto":"{\"funcao\":\"transformar_material\",\"alvo_id\":\"porta_norte\",\"novo_material\":\"espelho\",\"duracao_s\":15}","provedor":"ollama","modelo":"qwen2.5:7b","latencia_ms":3937}
+
+$ curl -s -H "Origin: https://arthur-baptista-dos-santos.github.io" -X OPTIONS ... (preflight CORS)
+HTTP/1.1 200 OK
+access-control-allow-methods: GET, POST, OPTIONS
+access-control-allow-headers: Accept, Accept-Language, Content-Language, Content-Type, X-API-Key
+access-control-allow-origin: https://arthur-baptista-dos-santos.github.io

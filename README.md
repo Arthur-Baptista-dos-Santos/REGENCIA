@@ -1,148 +1,10 @@
 [![Jogar agora](https://img.shields.io/badge/Jogar%20agora-arthur--baptista--dos--santos.github.io%2FREGENCIA-DCAB5C?logo=html5&logoColor=white)](https://arthur-baptista-dos-santos.github.io/REGENCIA/)
-[![Video](https://img.shields.io/badge/Video-apresentacao%20no%20YouTube-FF0000?logo=youtube&logoColor=white)](https://youtu.be/s1Bj-OcbRlQ)
-[![Deploy](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml/badge.svg)](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml)
+[![CI](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml/badge.svg)](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml)
+[![Video PLN](https://img.shields.io/badge/Video%20PLN-apresentacao%20no%20YouTube-FF0000?logo=youtube&logoColor=white)](https://youtu.be/s1Bj-OcbRlQ)
 
 # `Regencia: Jogo Cooperativo com IA Generativa`
 
-> Coop assimetrico de plataforma em que o Regente dita decretos em portugues e uma IA generativa os transforma em efeitos de jogo, sob um validador deterministico que garante que o nivel continua vencivel. Jogavel direto no navegador, sem instalar nada. Checkpoint 5 (Vibe Coding e MVP), Processamento de Linguagem Natural, Chatbots e Agentes Virtuais, FIAP.
-
----
-
-## `Jogar`
-
-**[Clique aqui para jogar](https://arthur-baptista-dos-santos.github.io/REGENCIA/)**: abre direto no navegador (computador, com teclado). Video de apresentacao: [youtu.be/s1Bj-OcbRlQ](https://youtu.be/s1Bj-OcbRlQ).
-
-1. Escolha **Treino livre** para testar sem tempo, ou **Campanha solo** para a experiencia completa.
-2. Como Regente, digite um decreto do seu jeito, por exemplo `transforma aquela porta ali num espelho` ou `chove acido perto do poco`, e aperte Enter.
-3. Como Explorador, use as setas e a seta para cima (pular) para chegar ao portal de saida.
-
-Por padrao os decretos sao interpretados pelo **interpretador local** (palavras-chave e sinonimos), que e so codigo. Para usar **IA generativa de verdade**, clique em **Ativar IA no navegador** no menu: o jogo baixa uma vez (cerca de 1 GB, fica guardado no navegador) o modelo de linguagem Qwen2.5-1.5B-Instruct, que roda 100% no seu computador via WebGPU, sem servidor e sem enviar nada para a internet. Precisa de Chrome ou Edge recentes e de uma GPU compativel. Se o modelo errar (alvo inventado, resposta fora do formato) ou demorar mais de 40 segundos, o jogo usa o interpretador local naquele decreto e continua normalmente.
-
----
-
-## `Tecnologias`
-
-![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?logo=javascript&logoColor=black)
-![WebGPU](https://img.shields.io/badge/WebGPU-LLM%20no%20navegador-005A9C)
-![HTML5 Canvas](https://img.shields.io/badge/HTML5-Canvas-E34F26?logo=html5&logoColor=white)
-![Node.js](https://img.shields.io/badge/Node.js-testes%20nativos-339933?logo=nodedotjs&logoColor=white)
-![Python](https://img.shields.io/badge/Python-3.11+-blue)
-![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%20e%20Pages-2088FF?logo=githubactions&logoColor=white)
-![License](https://img.shields.io/badge/license-MIT-green)
-
----
-
-## `O que faz`
-
-O Explorador atravessa um nivel de plataforma em tempo real, com fisica deterministica, ate o portal de saida. O Regente nao controla personagem algum: ele escreve frases em linguagem livre e ambigua, e uma IA as traduz em uma de cinco acoes de jogo (transformar material, clima local, criar obstaculo, efeito generico ou remover objeto). Antes de qualquer efeito chegar ao mundo, um validador sem IA confere se o alvo existe, limita os valores e testa se ainda existe um caminho ate a saida. Pedidos exagerados sao atenuados; o impossivel e recusado com explicacao.
-
----
-
-## `Telas`
-
-| Menu principal | Gameplay (Regente) |
-|---|---|
-| ![Menu principal](docs/img/01_menu.png) | ![Gameplay como Regente](docs/img/02_gameplay_regente.png) |
-
-| Gameplay (Explorador) | Cronicas do nivel |
-|---|---|
-| ![Gameplay como Explorador](docs/img/03_gameplay_explorador.png) | ![Cronicas do nivel](docs/img/04_cronicas.png) |
-
----
-
-## `Modos de jogo`
-
-| Modo | Descricao |
-|---|---|
-| **Campanha solo** | 3 niveis com troca de papeis: voce e o Regente contra um bot Explorador, depois o Explorador contra um Regente-IA. |
-| **Co-op local** | 2 pessoas no mesmo teclado: uma usa as setas, a outra digita os decretos. Trocam de papel a cada nivel. |
-| **Treino livre** | Voce controla o Explorador e digita decretos. Sem tempo e sem derrota. `R` reinicia, `1` `2` `3` trocam de nivel. |
-
-Controles: setas e seta para cima (ou `A` `D` `W`/`Espaco` fora da caixa de texto), `Enter` foca a caixa de decreto, `P` pausa, `M` liga ou desliga o som.
-
----
-
-## `Arquitetura`
-
-```
-Regente digita
-    |
-    Interpretacao
-        IA ao vivo (modelo de linguagem no navegador via WebGPU, resposta em JSON)  ou  interpretador local
-    |
-    coagirDecreto()     schema, enum e limites do catalogo (5 funcoes)
-    |
-    validarDecreto()    alvo existe? limites? zona de graca? ainda ha caminho ate a saida?
-    |
-    Vontade suficiente? -> aplicarDecreto() -> fisica deterministica + feedback
-    |
-    Log "Cronicas" com a fonte de cada decreto
-```
-
-```
-REGENCIA/
-    web/
-        index.html            pagina do jogo (gerada por build.js)
-        pagina.html           fragmento da pagina
-        js/logica.js          regras puras: niveis, catalogo, validador, planejador, interpretador local
-        js/jogo.js            motor: loop, fisica, bot, Regente-IA, canvas, telas
-        assets/               arte de fundo gerada por IA
-    tests/logica.test.js      23 testes automatizados
-    prototipo_python/         prototipo da CP4 (Python + pydantic + Pygame), 12 testes
-    docs/                     capturas de tela e documentacao
-    .github/workflows/        testes e deploy no GitHub Pages
-```
-
----
-
-## `IA generativa no projeto`
-
-| Modalidade | Onde entra | Detalhe |
-|---|---|---|
-| Texto | Interpreta os decretos do Regente e joga de Regente-IA | Qwen2.5-1.5B-Instruct (Alibaba) rodando no navegador via WebLLM e WebGPU; fallback local se indisponivel |
-| Imagem | Fundos do menu e do gameplay | Bing Image Creator (Microsoft), modelo MAI-Image-2.5-Flash |
-
-Personagens, cenario, efeitos visuais e sons sao procedurais (codigo), nao IA.
-
----
-
-## `Instalacao`
-
-Nao precisa instalar nada: abra `web/index.html`. Para rodar localmente em servidor e executar os testes:
-
-```bash
-git clone https://github.com/Arthur-Baptista-dos-Santos/REGENCIA.git
-cd REGENCIA
-
-python -m http.server 8000 --directory web     # abrir http://localhost:8000
-
-node --test tests/logica.test.js                # 23 testes (Node 20+)
-
-cd prototipo_python
-python -m venv .venv
-.venv\Scripts\activate       # Windows
-# source .venv/bin/activate  # Linux/Mac
-pip install -e ".[dev]"
-pytest                       # 12 testes
-```
-
----
-
-## `Conceitos aplicados`
-
-- **`IA como motor de interacao`**: o texto livre do jogador vira acao de jogo estruturada, em vez de menu fechado
-- **`Validador deterministico`**: a garantia de jogabilidade nao depende do modelo; recusa alvos inventados e atenua pedidos exagerados
-- **`Planejador de caminho`**: Dijkstra sobre grade com arestas de andar, degrau, queda e salto, usado pelo validador e pelo bot Explorador
-- **`Zona de graca`**: regras de justica (nada letal perto do Explorador, chuva acida nunca cobre o ponto de renascimento)
-- **`Fallback expressivo`**: texto sem palavra-chave reconhecida vira efeito generico proporcional, nunca um "nao posso"
-- **`Passo fixo de 120 Hz`**: fisica estavel e reproduzivel, que tambem permite testar o jogo por simulacao
-- **`Seguranca de prompt`**: texto do jogador tratado como dado, limitado a 160 caracteres, e saida da IA aceita so se for JSON dentro do catalogo e aprovada pelo validador
-
----
-
-## `Licenca`
-
-Distribuido sob a licenca MIT. Veja [LICENSE](LICENSE) para mais informacoes.
+> Coop assimetrico de plataforma em que o Regente dita decretos em portugues e uma IA generativa os transforma em efeitos de jogo, sob um validador deterministico que garante que o nivel continua vencivel. O jogo (front-end em JavaScript) nao chama o servico de IA diretamente: ele consome uma **API FastAPI propria do grupo**, com rota, provider, autenticacao por `X-API-Key`, CORS e Swagger. Checkpoint 5 de Processamento de Linguagem Natural e do Front-end, FIAP.
 
 ---
 
@@ -155,6 +17,243 @@ Distribuido sob a licenca MIT. Veja [LICENSE](LICENSE) para mais informacoes.
 | Nelson Félix Neto | 565603 |
 
 Inteligencia Artificial · FIAP 2025-2026
+
+---
+
+## `Tecnologias`
+
+![Python](https://img.shields.io/badge/Python-3.11+-blue?logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-API%20REST-009688?logo=fastapi&logoColor=white)
+![Pydantic](https://img.shields.io/badge/Pydantic-v2-E92063)
+![Ollama](https://img.shields.io/badge/Ollama-LLM%20local-000000)
+![Streamlit](https://img.shields.io/badge/Streamlit-painel%20com%20requests-FF4B4B?logo=streamlit&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-ES2020-F7DF1E?logo=javascript&logoColor=black)
+![HTML5 Canvas](https://img.shields.io/badge/HTML5-Canvas-E34F26?logo=html5&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-instalavel%20e%20offline-5A0FC8?logo=pwa&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-API-2496ED?logo=docker&logoColor=white)
+![GitHub Actions](https://img.shields.io/badge/GitHub%20Actions-CI%20e%20Pages-2088FF?logo=githubactions&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-green)
+
+---
+
+## `Visao geral`
+
+O repositorio tem **projetos separados**, cada um com seu README, dependencias e testes:
+
+| Pasta | O que e | Stack |
+|---|---|---|
+| [`web/`](web) | **Front-end**: o jogo jogavel no navegador | JavaScript puro, HTML5 Canvas, PWA |
+| [`backend/`](backend) | **API de IA generativa**: rota, provider, autenticacao, CORS, Swagger | FastAPI, Pydantic, httpx |
+| [`painel/`](painel) | Painel que consome a mesma API com `requests` | Streamlit, requests |
+| [`prototipo_python/`](prototipo_python) | Prototipo da CP4 (interpretador e validador em Python) | Python, pydantic, Pygame |
+| [`docs/`](docs) | Arquitetura, produto e evidencias | Markdown e capturas |
+
+O jogo e **jogavel sem back-end** (um interpretador local por palavras-chave assume). Com o back-end ligado, os decretos do jogador sao interpretados por um modelo de linguagem de verdade.
+
+---
+
+## `Arquitetura`
+
+```mermaid
+flowchart LR
+    J["Jogo (front-end)\nweb/js/api.js"] -- "POST /v1/ia-generativa/texto\nheader X-API-Key" --> R["routers/ia_generativa.py\nauth + limite + validacao"]
+    P["Painel Streamlit\nrequests"] -- "mesma rota" --> R
+    R --> V["providers/ia_provider.py\n(unico que conhece o servico externo)"]
+    V --> O["Ollama (modelo local)\nqwen2.5:7b"]
+    V -.-> X["API compativel com OpenAI\n(opcional)"]
+    J -. "sem API: interpretador local" .-> L["logica.js\n(validador deterministico)"]
+    J --> L
+```
+
+Padrao **rota -> provider**: o router (`backend/app/routers/ia_generativa.py`) cuida de HTTP, autenticacao e erros; o provider (`backend/app/providers/ia_provider.py`) e a unica camada que fala com o servico de IA. Trocar de Ollama para outro servico e mudar uma variavel de ambiente.
+
+Cadeia de decisao no jogo, para nunca travar: **API do grupo -> modelo no navegador (WebGPU) -> IA do ambiente -> interpretador local**. Em qualquer caso a resposta da IA e tratada como dado nao confiavel: so vira efeito se estiver no catalogo e passar pelo validador deterministico. Detalhes em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+
+---
+
+## `O que instalar`
+
+| Ferramenta | Para que | Obrigatorio |
+|---|---|---|
+| Python 3.11 ou mais novo | back-end e painel | sim, para rodar a API |
+| [Ollama](https://ollama.com/) + modelo `qwen2.5:7b` | IA generativa local, sem chave e sem custo | sim, para a IA real (ou use outro provedor, veja abaixo) |
+| Navegador moderno (Chrome, Edge, Firefox) | jogar | sim |
+| Node.js 20+ | so para rodar os testes do jogo | nao |
+| Docker | alternativa para subir a API em contêiner | nao |
+
+```bash
+ollama pull qwen2.5:7b      # cerca de 4,7 GB, uma vez
+```
+
+Sem Ollama? Use `PROVEDOR=openai` com qualquer API compativel (veja [backend/README.md](backend/README.md)) ou `PROVEDOR=simulado` (sem IA, so para testar a API).
+
+---
+
+## `Como rodar`
+
+**1. Back-end (API)**
+
+```bash
+git clone https://github.com/Arthur-Baptista-dos-Santos/REGENCIA.git
+cd REGENCIA/backend
+
+python -m venv .venv
+.venv\Scripts\activate       # Windows
+# source .venv/bin/activate  # Linux/Mac
+pip install -r requirements.txt
+
+cp .env.example .env         # depois edite o .env e defina API_KEY
+python -c "import secrets; print(secrets.token_urlsafe(32))"   # gera uma chave para colar em API_KEY
+
+uvicorn app.main:app --port 8000
+```
+
+Abra **http://localhost:8000/docs** (Swagger). Clique em *Authorize*, cole a `API_KEY` e teste a rota.
+
+**2. Jogo (front-end)**
+
+```bash
+cd REGENCIA/web
+python -m http.server 8080   # abrir http://localhost:8080
+```
+
+No menu, abra **Configuracoes**, informe `http://localhost:8000` e a mesma `API_KEY`, marque *Usar a API* e clique em **Testar conexao**. Pronto: os decretos passam pela API (o log do jogo mostra o selo `API qwen2.5:7b`).
+
+Tambem funciona no site publicado: https://arthur-baptista-dos-santos.github.io/REGENCIA/ (o navegador permite chamar `http://localhost:8000` e o CORS ja autoriza essa origem).
+
+**3. Painel (opcional)**
+
+```bash
+cd REGENCIA/painel
+python -m venv .venv && .venv\Scripts\activate
+pip install -r requirements.txt
+streamlit run app.py         # http://localhost:8501
+```
+
+**4. Docker (opcional)**
+
+```bash
+cp backend/.env.example backend/.env    # defina API_KEY
+docker compose up --build               # API em http://localhost:8000
+```
+
+---
+
+## `API`
+
+| Metodo | Rota | Auth | Descricao |
+|---|---|---|---|
+| GET | `/health` | nao | Estado da API, provedor e modelo (sem dados sensiveis) |
+| POST | `/v1/ia-generativa/texto` | `X-API-Key` | Recebe o contexto do jogo e devolve o texto gerado |
+| GET | `/docs` e `/redoc` | nao | Documentacao automatica (Swagger e ReDoc) |
+
+```bash
+curl -X POST http://localhost:8000/v1/ia-generativa/texto \
+  -H "X-API-Key: $API_KEY" -H "Content-Type: application/json" \
+  -d '{"prompt": "Responda apenas com JSON: transforma aquela porta num espelho", "max_tokens": 220, "temperatura": 0.2, "formato_json": true}'
+```
+
+```json
+{"texto": "{\"funcao\":\"transformar_material\",\"alvo_id\":\"porta_norte\",\"novo_material\":\"espelho\",\"duracao_s\":15}",
+ "provedor": "ollama", "modelo": "qwen2.5:7b", "latencia_ms": 3937}
+```
+
+| Status | Quando |
+|---|---|
+| 200 | Texto gerado |
+| 401 | `X-API-Key` ausente ou errada |
+| 422 | Prompt vazio, grande demais ou parametros fora da faixa |
+| 429 | Mais de 30 requisicoes por minuto por chave e IP (configuravel) |
+| 502, 503, 504 | O servico de IA respondeu com erro, esta fora do ar ou demorou demais |
+
+Autenticacao, CORS (origens permitidas), limites e provedor sao configurados por variaveis de ambiente (`backend/.env.example`). Nenhum segredo fica no codigo.
+
+---
+
+## `Evidencias`
+
+O PDF da disciplina pede a prova de que o jogo usa a API do grupo em tempo de execucao. Tudo abaixo foi gerado com a API rodando e o modelo real:
+
+| Jogo chamando a API | Swagger em `/docs` |
+|---|---|
+| ![Jogo via API](docs/img/08_jogo_via_api.png) | ![Swagger](docs/img/09_swagger.png) |
+
+| Configuracoes do jogo (teste de conexao) | Painel Streamlit com `requests` |
+|---|---|
+| ![Configuracoes](docs/img/07_configuracoes_conexao_ok.png) | ![Painel](docs/img/10_painel_streamlit.png) |
+
+- No log do jogo cada decreto traz o selo `API qwen2.5:7b`: significa que a interpretacao veio da rota `POST /v1/ia-generativa/texto`, e nao de uma chamada direta ao servico de IA.
+- [docs/evidencias/chamadas_curl.txt](docs/evidencias/chamadas_curl.txt): registro real das chamadas (401 sem chave, 401 chave errada, 422, 200 com o prompt do jogo, preflight CORS).
+
+---
+
+## `Testes`
+
+```bash
+node --test tests/logica.test.js tests/api.test.js     # jogo e cliente da API: 34 testes
+cd backend && pytest -q                                 # API: 32 testes (auth, providers, CORS, erros, limite)
+cd painel && pytest -q                                  # painel: 8 testes
+cd prototipo_python && pytest -q                        # prototipo da CP4: 12 testes
+```
+
+O CI (GitHub Actions) roda tudo isso, alem de `ruff`, `mypy --strict` no back-end e de construir a imagem Docker e testar `/health`, 401 e 200, antes de publicar o jogo no GitHub Pages.
+
+---
+
+## `Estrutura do repositorio`
+
+```
+REGENCIA/
+    backend/                    API FastAPI (projeto 1)
+        app/
+            main.py             cria o app, CORS, routers, Swagger
+            config.py           configuracao por variaveis de ambiente
+            security.py         X-API-Key e limite de requisicoes
+            schemas.py          contratos da API (Pydantic)
+            routers/            ia_generativa.py (rota), saude.py
+            providers/          ia_provider.py (Ollama, OpenAI compativel, simulado)
+        tests/                  32 testes
+        Dockerfile  .env.example  requirements.txt
+    web/                        jogo, front-end (projeto 2)
+        js/logica.js            regras puras, validador, planejador, interpretador local
+        js/api.js               cliente da API do grupo
+        js/jogo.js              motor, fisica, bot, telas
+        sw.js  manifest.webmanifest  icons/  assets/
+    painel/                     Streamlit + requests (projeto 3)
+    prototipo_python/           prototipo da CP4
+    tests/                      testes do jogo (Node)
+    docs/                       ARQUITETURA.md, PRODUTO.md, evidencias, capturas
+    docker-compose.yml
+    .github/workflows/pages.yml CI e deploy
+```
+
+---
+
+## `Conceitos aplicados`
+
+- **`Rota -> provider`**: HTTP isolado do servico de IA, trocavel por configuracao
+- **`Autenticacao por API Key`**: header `X-API-Key` comparado com `hmac.compare_digest`, sem vazar a chave pelo tempo de resposta
+- **`CORS explicito`**: so as origens configuradas (jogo local e GitHub Pages), com suporte ao preflight de rede privada
+- **`Limite de requisicoes`**: janela deslizante por chave e IP, depois da autenticacao
+- **`Contratos com Pydantic`**: validacao de entrada e documentacao Swagger gerada dos mesmos modelos
+- **`Degradacao elegante`**: se a API ou o modelo falham, o jogo cai no interpretador local e segue jogavel
+- **`Validador deterministico`**: a garantia de jogabilidade nao depende do modelo
+- **`Provider isolado e testavel`**: testes com transporte HTTP simulado, sem rede e sem IA real
+
+---
+
+## `Mais`
+
+- [docs/ARQUITETURA.md](docs/ARQUITETURA.md): fluxo completo, decisoes, limitacoes
+- [docs/PRODUTO.md](docs/PRODUTO.md): o jogo como produto (publico, modelo de negocio, roadmap, lancamento)
+- [backend/README.md](backend/README.md) e [painel/README.md](painel/README.md): detalhes de cada projeto
+- Video do Checkpoint 5 de PLN: https://youtu.be/s1Bj-OcbRlQ
+
+---
+
+## `Licenca`
+
+Distribuido sob a licenca MIT. Veja [LICENSE](LICENSE) para mais informacoes.
 
 ---
 
