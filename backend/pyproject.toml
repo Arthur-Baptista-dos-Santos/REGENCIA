@@ -1,0 +1,35 @@
+[project]
+name = "regencia-api"
+version = "1.0.0"
+description = "API FastAPI de IA generativa de texto do jogo Regencia"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "httpx>=0.27",
+    "pydantic>=2.6",
+    "pydantic-settings>=2.2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0", "ruff>=0.6", "mypy>=1.10"]
+
+[tool.ruff]
+line-length = 130
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Depends() nos argumentos e o padrao documentado do FastAPI
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Security"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+plugins = ["pydantic.mypy"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["integracao: exigem um provedor de IA real em execucao (ex.: Ollama); fora do loop rapido"]

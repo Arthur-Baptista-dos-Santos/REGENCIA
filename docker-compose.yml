@@ -1,0 +1,18 @@
+# Sobe a API de IA generativa do jogo. O Ollama roda na sua máquina (ou troque o provedor no .env).
+#
+#   1) copie backend/.env.example para backend/.env e preencha API_KEY
+#   2) docker compose up --build
+#   3) abra http://localhost:8000/docs
+services:
+  api:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      # dentro do contêiner, o Ollama da máquina é alcançado por este nome
+      OLLAMA_URL: ${OLLAMA_URL:-http://host.docker.internal:11434}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

@@ -3,6 +3,7 @@ name: Testes e deploy no GitHub Pages
 on:
   push:
     branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -15,18 +16,64 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  testes:
+  jogo:
+    name: Testes do jogo (Node)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Testes automatizados da logica do jogo
-        run: node --test tests/logica.test.js
+      - run: node --test tests/logica.test.js tests/api.test.js
+
+  backend:
+    name: Testes da API (FastAPI)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt pytest ruff mypy
+      - run: ruff check .
+      - run: mypy app tests
+      - run: pytest -q
+
+  painel:
+    name: Testes do painel (requests)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: painel
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests pytest
+      - run: pytest -q
+
+  docker:
+    name: Imagem Docker da API
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Constrói a imagem
+        run: docker build -t regencia-api ./backend
+      - name: Sobe a API em modo simulado e confere /health, 401 e 200
+        run: |
+          docker run -d --name api -p 8000:8000 -e API_KEY=chave-de-ci-12345 -e PROVEDOR=simulado regencia-api
+          for i in $(seq 1 20); do curl -fs http://localhost:8000/health && break || sleep 2; done
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/v1/ia-generativa/texto -H 'Content-Type: application/json' -d '{"prompt":"oi"}')" = "401"
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST http://localhost:8000/v1/ia-generativa/texto -H 'X-API-Key: chave-de-ci-12345' -H 'Content-Type: application/json' -d '{"prompt":"oi"}')" = "200"
 
   deploy:
-    needs: testes
+    name: Publica o jogo no GitHub Pages
+    needs: [jogo, backend, painel, docker]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     environment:
       name: github-pages
