@@ -16,7 +16,7 @@ Jogo publicado (jogar no navegador):
 https://arthur-baptista-dos-santos.github.io/REGENCIA/
 
 Video de Front-end (jogo e arquitetura):
-(LINK A SER PREENCHIDO)
+https://youtu.be/1-x3sWunHAc
 
 Video de PLN (Checkpoint 5):
 https://youtu.be/s1Bj-OcbRlQ

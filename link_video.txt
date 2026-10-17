@@ -6,3 +6,5 @@ Link: https://youtu.be/s1Bj-OcbRlQ
 
 Jogo online: https://arthur-baptista-dos-santos.github.io/REGENCIA/
 Repositorio: https://github.com/Arthur-Baptista-dos-Santos/REGENCIA
+
+Video de Front-end (API FastAPI e jogo): https://youtu.be/1-x3sWunHAc

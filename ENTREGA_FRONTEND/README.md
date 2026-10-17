@@ -2,6 +2,8 @@
 
 Pasta de entrega da disciplina de **Front-end**. Reune, em um so lugar, tudo o que o enunciado pede e onde cada item pode ser verificado. O projeto completo (jogo, back-end e painel) esta no repositorio: https://github.com/Arthur-Baptista-dos-Santos/REGENCIA
 
+Video de Front-end: https://youtu.be/1-x3sWunHAc
+
 Os nomes, RMs e links da entrega tambem estao em [DADOS_DA_ENTREGA.txt](DADOS_DA_ENTREGA.txt).
 
 ---
@@ -27,7 +29,7 @@ Os nomes, RMs e links da entrega tambem estao em [DADOS_DA_ENTREGA.txt](DADOS_DA
 | CORS (citado na avaliacao de Front) | [`backend/app/main.py`](../backend/app/main.py) | Trecho 5; preflight real registrado em [chamadas_curl.txt](evidencias/chamadas_curl.txt) |
 | Front de consumo via `requests` (painel Streamlit) | [`painel/`](../painel) | Trecho 7; captura `10_painel_streamlit.png` |
 | Link do repositorio (GitHub) com back-end e jogo | https://github.com/Arthur-Baptista-dos-Santos/REGENCIA | Pastas `backend/`, `web/` e `painel/` |
-| Video simples explicando o jogo e a arquitetura | Link em [DADOS_DA_ENTREGA.txt](DADOS_DA_ENTREGA.txt) | |
+| Video simples explicando o jogo e a arquitetura | https://youtu.be/1-x3sWunHAc | Assistir ao video |
 
 Endpoint implementado (modalidade **texto**): `POST /v1/ia-generativa/texto`, o mesmo sugerido no enunciado.
 

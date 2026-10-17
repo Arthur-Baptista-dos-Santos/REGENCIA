@@ -1,6 +1,7 @@
 [![Jogar agora](https://img.shields.io/badge/Jogar%20agora-arthur--baptista--dos--santos.github.io%2FREGENCIA-DCAB5C?logo=html5&logoColor=white)](https://arthur-baptista-dos-santos.github.io/REGENCIA/)
 [![CI](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml/badge.svg)](https://github.com/Arthur-Baptista-dos-Santos/REGENCIA/actions/workflows/pages.yml)
 [![Video PLN](https://img.shields.io/badge/Video%20PLN-apresentacao%20no%20YouTube-FF0000?logo=youtube&logoColor=white)](https://youtu.be/s1Bj-OcbRlQ)
+[![Video Front-end](https://img.shields.io/badge/Video%20Front--end-API%20e%20jogo%20no%20YouTube-FF0000?logo=youtube&logoColor=white)](https://youtu.be/1-x3sWunHAc)
 
 # `Regencia: Jogo Cooperativo com IA Generativa`
 
@@ -270,6 +271,8 @@ REGENCIA/
 - [docs/PRODUTO.md](docs/PRODUTO.md): o jogo como produto (publico, modelo de negocio, roadmap, lancamento)
 - [backend/README.md](backend/README.md) e [painel/README.md](painel/README.md): detalhes de cada projeto
 - Video do Checkpoint 5 de PLN: https://youtu.be/s1Bj-OcbRlQ
+- Video do Checkpoint 5 de Front-end (API e jogo): https://youtu.be/1-x3sWunHAc
+- Entregaveis de Front-end: [ENTREGA_FRONTEND](ENTREGA_FRONTEND)
 
 ---
 
