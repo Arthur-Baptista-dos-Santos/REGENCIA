@@ -67,7 +67,23 @@ flowchart LR
 
 Padrao **rota -> provider**: o router (`backend/app/routers/ia_generativa.py`) cuida de HTTP, autenticacao e erros; o provider (`backend/app/providers/ia_provider.py`) e a unica camada que fala com o servico de IA. Trocar de Ollama para outro servico e mudar uma variavel de ambiente.
 
-Cadeia de decisao no jogo, para nunca travar: **API do grupo -> modelo no navegador (WebGPU) -> IA do ambiente -> interpretador local**. Em qualquer caso a resposta da IA e tratada como dado nao confiavel: so vira efeito se estiver no catalogo e passar pelo validador deterministico. Detalhes em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+Cadeia de decisao no jogo, para nunca travar: **API do grupo -> modelo no navegador (Qwen2.5-3B via WebGPU) -> IA do ambiente -> interpretador local**. Em qualquer caso a resposta da IA e tratada como dado nao confiavel: so vira efeito se estiver no catalogo e passar pelo validador deterministico. Detalhes em [docs/ARQUITETURA.md](docs/ARQUITETURA.md).
+
+---
+
+## `Jogar na web, sem instalar nada (IA no navegador)`
+
+O site publicado nao precisa de back-end: no menu, **Ativar IA no navegador** baixa uma vez o modelo Qwen2.5-3B (cerca de 2,5 GB, fica em cache) e ele roda 100% na sua GPU via WebGPU (Chrome ou Edge no computador). A saida do modelo e restrita por **gramatica JSON** (so funcoes do catalogo e so ids de objetos que existem no nivel), o que elimina alvos inventados. Sem WebGPU, ou sem ativar, o interpretador local por palavras-chave mantem o jogo jogavel.
+
+A qualidade foi **medida** (nao suposta) com o prompt e o validador reais do jogo, em 40 frases, 20 delas parafrases que o interpretador local nao conhece. Resumo das parafrases:
+
+| Interpretador | Funcao correta | Parametros corretos | Latencia mediana |
+|---|---|---|---|
+| Qwen2.5-3B no navegador (prompt curto + gramatica) | 95% | 80% | 15,5 s (GPU integrada Intel) |
+| Qwen2.5-1.5B no navegador (prompt curto + gramatica) | 70% | 75% | 9,1 s |
+| Interpretador local (palavras-chave) | 80% | 65% | instantaneo |
+
+Tabela completa, metodo e como reproduzir em [docs/evidencias/benchmark_webllm.md](docs/evidencias/benchmark_webllm.md). O prompt original (longo) foi abandonado para o navegador: errava o alvo e chegou a derrubar o driver da GPU integrada; o prompt curto com gramatica resolveu os dois problemas.
 
 ---
 
@@ -184,13 +200,18 @@ O PDF da disciplina pede a prova de que o jogo usa a API do grupo em tempo de ex
 
 - No log do jogo cada decreto traz o selo `API qwen2.5:7b`: significa que a interpretacao veio da rota `POST /v1/ia-generativa/texto`, e nao de uma chamada direta ao servico de IA.
 - [docs/evidencias/chamadas_curl.txt](docs/evidencias/chamadas_curl.txt): registro real das chamadas (401 sem chave, 401 chave errada, 422, 200 com o prompt do jogo, preflight CORS).
+- Em **Configuracoes** o jogo lista as ultimas chamadas feitas a rota (hora, `POST /v1/ia-generativa/texto`, status HTTP, tempo e modelo), prova visual de que consome a API em tempo de execucao.
+
+| Registro de chamadas na tela de Configuracoes | IA rodando no navegador (sem back-end) |
+|---|---|
+| ![Registro de chamadas](docs/img/12_log_chamadas_api.jpg) | ![IA no navegador](docs/img/11_jogo_ia_no_navegador.jpg) |
 
 ---
 
 ## `Testes`
 
 ```bash
-node --test tests/logica.test.js tests/api.test.js     # jogo e cliente da API: 34 testes
+node --test tests/logica.test.js tests/api.test.js tests/modelo.test.js     # jogo, cliente da API e prompt do modelo: 42 testes
 cd backend && pytest -q                                 # API: 32 testes (auth, providers, CORS, erros, limite)
 cd painel && pytest -q                                  # painel: 8 testes
 cd prototipo_python && pytest -q                        # prototipo da CP4: 12 testes

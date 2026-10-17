@@ -33,13 +33,16 @@ Separar o jogo (front-end) do servico de IA generativa. O jogo chama uma API pro
 | Provider trocavel | Mudar de servico e mudar variavel de ambiente |
 | Saida da IA tratada como nao confiavel | Alucinacao nao pode quebrar o jogo |
 | Cadeia de fallback no jogo | API do grupo, modelo no navegador (WebGPU), IA do ambiente, interpretador local: o jogo nunca trava |
+| Modelo no navegador com prompt curto e saida por gramatica JSON | Medido: o prompt longo original errou o alvo e derrubou o driver da GPU integrada; o curto com gramatica acerta a funcao em 95% das parafrases (docs/evidencias/benchmark_webllm.md) |
+| Qwen2.5-3B e nao 1.5B no navegador | Nas parafrases, 95% contra 70% de funcao correta; custo: 2,5 GB de download unico e o dobro da latencia |
+| Service worker com rede primeiro | Evita servir arquivos antigos depois de uma atualizacao; offline continua funcionando com a ultima copia |
 | Limite em memoria | Simples e suficiente para uma instancia; com varias instancias, usar Redis |
 
 ## Limitacoes conhecidas
 
 - A API precisa estar rodando em maquina acessivel ao jogador. No site do GitHub Pages ela e `http://localhost:8000` do proprio jogador; para publico geral seria preciso hospedar a API e o modelo (custo de GPU ou de API paga).
 - A chave digitada nas Configuracoes fica no `localStorage` do navegador do jogador.
-- A geracao do modelo no navegador (WebLLM) nao teve a qualidade medida; por isso e o segundo na cadeia, nao o primeiro.
+- O modelo no navegador (Qwen2.5-3B, WebLLM) e mais lento que a API: 15 s por decreto numa GPU integrada Intel, medidos. Por isso a API do grupo vem primeiro na cadeia, e o jogo mostra um contador enquanto espera. Em GPU dedicada o tempo cai bastante.
 - O limite de requisicoes e por processo.
 - Latencia observada com `qwen2.5:7b` local: cerca de 3 a 4 s por decreto, em um computador pessoal.
 

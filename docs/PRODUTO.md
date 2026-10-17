@@ -9,7 +9,7 @@ Um coop assimetrico de plataforma em que uma pessoa joga o Regente e fala o que 
 - 5 niveis com dificuldade crescente, bot que joga sozinho para demonstracao e para provar que cada nivel e vencivel.
 - Configuracoes (volume, musica, tremor de tela), pausa, recordes salvos no navegador.
 - Instalavel como app (PWA) e funciona offline com o interpretador local.
-- Sem instalacao: abre no navegador.
+- Sem instalacao: abre no navegador, e a IA pode rodar no proprio navegador (Qwen2.5-3B via WebGPU, sem servidor, qualidade medida em docs/evidencias).
 
 ## Publico
 
@@ -28,7 +28,7 @@ Nao ha numeros de mercado neste documento: nenhuma estimativa foi medida. Valida
 ## Roadmap
 
 1. Mais niveis e um tutorial guiado.
-2. Hospedar a API com modelo menor para jogar sem instalar nada.
+2. Hospedar a API (FastAPI) com um modelo na nuvem para quem nao tem GPU boa: o back-end ja aceita qualquer servico compativel com a API de chat da OpenAI.
 3. Modo coop online (dois jogadores em maquinas diferentes).
 4. Telemetria opcional e anonima dos decretos que o validador recusou, para melhorar o catalogo.
 5. Editor de niveis.
