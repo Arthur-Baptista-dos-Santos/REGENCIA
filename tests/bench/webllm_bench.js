@@ -96,9 +96,13 @@
     const t0 = performance.now();
     let eng = opts.semModelo ? null : await motor(modeloId, (p) => { window.__benchProgresso = 'carregando ' + Math.round((p.progress || 0) * 100) + '%'; });
     const carga_s = Math.round((performance.now() - t0) / 1000);
-    const linhas = [];
-    let k = 0, reinicios = 0;
-    for (const [frase, esperado] of casos) {
+    // a GPU integrada as vezes reinicia no meio da execucao (DXGI_ERROR_DEVICE_REMOVED); com opts.retomar o progresso
+    // fica no localStorage e uma nova execucao (depois de recarregar a pagina) continua de onde parou
+    const chaveLS = 'bench:' + modeloId + ':' + estrategia;
+    let linhas = [];
+    if (opts.retomar) { try { linhas = JSON.parse(localStorage.getItem(chaveLS) || '[]'); } catch (e) { linhas = []; } }
+    let k = linhas.length, reinicios = 0;
+    for (const [frase, esperado] of casos.slice(linhas.length)) {
       window.__benchProgresso = 'caso ' + (++k) + '/' + casos.length;
       const loc = avaliar(L.interpretarLocal(frase, estado), esperado, estado);
       let ia = null, ms = 0, g = null, erro = '';
@@ -113,9 +117,11 @@
           }
         }
         ms = Math.round(performance.now() - a);
+        if (!g && /DEVICE_REMOVED|requestDevice|device (was )?lost/i.test(erro)) throw new Error('gpu_perdida: ' + erro);
         ia = g && g.bruto ? avaliar(g.bruto, esperado, estado) : { jsonValido: false, schemaOk: false, funcaoOk: false, alvoOk: false, aprovado: false, motivo: erro || 'sem JSON' };
       }
       linhas.push({ grupo: CASOS.findIndex((c) => c[0] === frase) < 20 ? 'original' : 'parafrase', frase, esperado, ia, loc, ms, texto: g ? g.texto : erro, tokens_prompt: g ? g.tokens_prompt : 0 });
+      try { localStorage.setItem(chaveLS, JSON.stringify(linhas)); } catch (e) { /* sem persistencia: segue sem retomar */ }
     }
     const resumo = (campo, grupo) => {
       const rows = linhas.filter((l) => l[campo] && (!grupo || l.grupo === grupo));
@@ -133,6 +139,7 @@
       };
     };
     const saida = { modelo: eng ? modeloId : null, estrategia, carga_s, reinicios, total_casos: casos.length, ia: eng ? { tudo: resumo('ia'), original: resumo('ia', 'original'), parafrase: resumo('ia', 'parafrase') } : null, local: { tudo: resumo('loc'), original: resumo('loc', 'original'), parafrase: resumo('loc', 'parafrase') }, linhas };
+    try { localStorage.removeItem(chaveLS); } catch (e) { /* nada a limpar */ }
     window.__benchResultado = saida;
     window.__benchProgresso = 'pronto';
     return saida;

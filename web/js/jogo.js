@@ -147,11 +147,14 @@
           const aborta = () => { try { motor.interruptGenerate(); } catch (e) { /* sem geração em curso */ } };
           if (opts && opts.signal) opts.signal.addEventListener('abort', aborta, { once: true });
           let r;
+          const gpuPerdida = (e) => /DEVICE_REMOVED|device (was )?lost|requestDevice/i.test(String((e && e.message) || e));
           try { r = await uma(mensagens, estado); }
           catch (e) {
+            if (gpuPerdida(e)) throw { code: 'gpu_perdida', message: 'a GPU do navegador reiniciou' };
             // o motor de gramática do WebLLM às vezes "morre" entre chamadas: recarrega o modelo (já em cache) e tenta de novo
             if (!/GrammarMatcher|disposed|not loaded/i.test(String((e && e.message) || e))) throw e;
-            motor = await criarMotor(); r = await uma(mensagens, estado);
+            try { motor = await criarMotor(); r = await uma(mensagens, estado); }
+            catch (e2) { throw gpuPerdida(e2) ? { code: 'gpu_perdida', message: 'a GPU do navegador reiniciou' } : e2; }
           }
           return r;
         };
@@ -182,6 +185,8 @@
     const code = e && e.code;
     if (['not_granted', 'sampling_disabled', 'not_declared', 'capability_disabled', 'capability_removed'].includes(code)) {
       iaViva = false; atualizarMenuIA(); aviso('IA ao vivo recusada/indisponível: seguindo com o interpretador local.', 3200);
+    } else if (code === 'gpu_perdida') {
+      iaViva = false; atualizarMenuIA(); aviso('A GPU do navegador reiniciou. Recarregue a página para religar a IA; seguindo com o interpretador local.', 5000);
     } else if (code === 'api_auth') aviso('A API recusou a chave (X-API-Key). Confira em Configurações. Usei o interpretador local.', 4200);
     else if (code === 'api_rede') aviso('Não foi possível falar com a API. Usei o interpretador local neste decreto.', 3500);
     else if (code === 'api_provedor_fora') aviso('A API está no ar, mas o serviço de IA por trás dela não respondeu. Usei o interpretador local.', 4200);

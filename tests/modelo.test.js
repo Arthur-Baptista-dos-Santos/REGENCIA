@@ -30,8 +30,11 @@ test('o schema restringe alvo_id aos ids que existem no nivel', () => {
   const ids = S.objetos.filter((o) => o.ativo && o.tipo !== 'checkpoint').map((o) => o.id);
   const sch = M.montarSchema(S, L.CATALOGO);
   const ramo = (f) => sch.anyOf.find((r) => r.properties.funcao.const === f);
-  assert.deepEqual(ramo('transformar_material').properties.alvo_id.enum, ids);
-  assert.deepEqual(ramo('remover_objeto').properties.alvo_id.enum, ids);
+  const alteraveis = S.objetos.filter((o) => o.ativo && !['saida', 'checkpoint', 'inimigo'].includes(o.tipo)).map((o) => o.id);
+  assert.deepEqual(ramo('transformar_material').properties.alvo_id.enum, alteraveis);
+  assert.deepEqual(ramo('remover_objeto').properties.alvo_id.enum, alteraveis);
+  assert.ok(ids.includes('saida') && !alteraveis.includes('saida'));
+  assert.deepEqual(ramo('clima_local').properties.alvo_id.enum.filter(Boolean), ids);
   assert.ok(ramo('clima_local').properties.alvo_id.enum.includes(null));
   assert.equal(sch.anyOf.length, L.CATALOGO.funcoes.length);
 });
@@ -59,4 +62,13 @@ test('o Regente-IA recebe a mesma lista de objetos', () => {
   const msgs = M.montarMensagensRegente(estado());
   assert.match(msgs[1].content, /porta_norte/);
   assert.match(msgs[1].content, /Varie/);
+});
+
+test('sem objeto alteravel no nivel, o schema omite transformar e remover em vez de gerar enum vazio', () => {
+  const S = estado();
+  S.objetos = S.objetos.filter((o) => ['saida', 'checkpoint'].includes(o.tipo));
+  const sch = M.montarSchema(S, L.CATALOGO);
+  const funcoes = sch.anyOf.map((r) => r.properties.funcao.const);
+  assert.ok(!funcoes.includes('transformar_material') && !funcoes.includes('remover_objeto'));
+  assert.ok(funcoes.includes('efeito_generico'));
 });

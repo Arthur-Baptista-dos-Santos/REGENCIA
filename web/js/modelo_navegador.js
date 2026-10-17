@@ -46,21 +46,25 @@
   /** JSON Schema do decreto: ids e enums vêm do catálogo e do estado atual do nível. */
   function montarSchema(estado, catalogo) {
     const ids = objetosVisiveis(estado).map((o) => o.id);
+    // o validador do jogo protege a saída, os marcos e os inimigos; o schema já nem deixa o modelo escolher esses alvos
+    const alteraveis = objetosVisiveis(estado).filter((o) => !['saida', 'checkpoint', 'inimigo'].includes(o.tipo)).map((o) => o.id);
     const ramo = (funcao, propriedades, obrigatorios) => ({
       type: 'object',
       properties: Object.assign({ funcao: { const: funcao } }, propriedades),
       required: ['funcao'].concat(obrigatorios),
       additionalProperties: false,
     });
-    return {
-      anyOf: [
-        ramo('transformar_material', { alvo_id: { enum: ids }, novo_material: { enum: catalogo.materiais } }, ['alvo_id', 'novo_material']),
-        ramo('clima_local', { tipo: { enum: catalogo.climas }, alvo_id: { enum: ids.concat([null]) } }, ['tipo', 'alvo_id']),
-        ramo('spawnar_obstaculo', { tipo: { enum: catalogo.tipos_obstaculo }, lado: { enum: catalogo.lados } }, ['tipo', 'lado']),
-        ramo('efeito_generico', { propriedade: { enum: catalogo.propriedades }, polaridade: { enum: catalogo.polaridades } }, ['propriedade', 'polaridade']),
-        ramo('remover_objeto', { alvo_id: { enum: ids } }, ['alvo_id']),
-      ],
-    };
+    const ramos = [
+      ramo('clima_local', { tipo: { enum: catalogo.climas }, alvo_id: { enum: ids.concat([null]) } }, ['tipo', 'alvo_id']),
+      ramo('spawnar_obstaculo', { tipo: { enum: catalogo.tipos_obstaculo }, lado: { enum: catalogo.lados } }, ['tipo', 'lado']),
+      ramo('efeito_generico', { propriedade: { enum: catalogo.propriedades }, polaridade: { enum: catalogo.polaridades } }, ['propriedade', 'polaridade']),
+    ];
+    // sem objeto alterável no nível, essas duas funções saem do schema (uma gramática com enum vazio quebraria a geração)
+    if (alteraveis.length) {
+      ramos.unshift(ramo('transformar_material', { alvo_id: { enum: alteraveis }, novo_material: { enum: catalogo.materiais } }, ['alvo_id', 'novo_material']));
+      ramos.push(ramo('remover_objeto', { alvo_id: { enum: alteraveis } }, ['alvo_id']));
+    }
+    return { anyOf: ramos };
   }
 
   return { SISTEMA, montarMensagens, montarMensagensRegente, montarSchema };

@@ -83,7 +83,7 @@ A qualidade foi **medida** (nao suposta) com o prompt e o validador reais do jog
 | Qwen2.5-1.5B no navegador (prompt curto + gramatica) | 70% | 75% | 9,1 s |
 | Interpretador local (palavras-chave) | 80% | 65% | instantaneo |
 
-Tabela completa, metodo e como reproduzir em [docs/evidencias/benchmark_webllm.md](docs/evidencias/benchmark_webllm.md). O prompt original (longo) foi abandonado para o navegador: errava o alvo e chegou a derrubar o driver da GPU integrada; o prompt curto com gramatica resolveu os dois problemas.
+Tabela completa, metodo e como reproduzir em [docs/evidencias/benchmark_webllm.md](docs/evidencias/benchmark_webllm.md). **Aviso de hardware:** em GPU integrada o modelo de 3B e lento (cerca de 15 s por decreto) e, nos testes, a GPU integrada Intel chegou a reiniciar o driver e, uma vez, o computador. Para jogar com IA prefira GPU dedicada ou use a API do grupo (3 a 4 s); o jogo detecta a GPU reiniciada e volta para o interpretador local. O prompt original (longo) foi abandonado para o navegador: errava o alvo e chegou a derrubar o driver da GPU integrada; o prompt curto com gramatica resolveu os dois problemas.
 
 ---
 
@@ -211,7 +211,7 @@ O PDF da disciplina pede a prova de que o jogo usa a API do grupo em tempo de ex
 ## `Testes`
 
 ```bash
-node --test tests/logica.test.js tests/api.test.js tests/modelo.test.js     # jogo, cliente da API e prompt do modelo: 42 testes
+node --test tests/logica.test.js tests/api.test.js tests/modelo.test.js     # jogo, cliente da API e prompt do modelo: 43 testes
 cd backend && pytest -q                                 # API: 32 testes (auth, providers, CORS, erros, limite)
 cd painel && pytest -q                                  # painel: 8 testes
 cd prototipo_python && pytest -q                        # prototipo da CP4: 12 testes
