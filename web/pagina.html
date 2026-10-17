@@ -93,7 +93,7 @@
         <button class="btn" id="m-treino"><span>Treino livre <small>sem tempo, teste decretos à vontade</small></span><span>∞</span></button>
         <button class="btn" id="m-como"><span>Como jogar</span><span>?</span></button>
         <button class="btn" id="m-config"><span>Configurações <small>API de IA, som e efeitos</small></span><span>⚙</span></button>
-        <div class="linha-ia"><span id="ia-status">Verificando IA ao vivo…</span><button class="btn centro" id="ia-toggle" hidden style="padding:6px 12px">Alternar</button><button class="btn primario centro" id="ia-baixar" hidden style="padding:6px 12px">Ativar IA no navegador</button></div>
+        <div class="linha-ia"><span id="ia-status">Verificando IA ao vivo…</span><button class="btn centro" id="ia-toggle" hidden style="padding:6px 12px">Alternar</button><button class="btn primario centro" id="ia-baixar" hidden style="padding:6px 12px">Ativar IA no navegador (baixa 2,5 GB, uma vez)</button></div>
         <p class="credito" id="m-recorde"></p>
         <p class="credito">Projeto acadêmico FIAP · PLN (CP5). Arte de fundo gerada por IA (Bing Image Creator, ver relatório da CP4). Decretos interpretados por uma IA quando disponível; senão, pelo interpretador local.</p>
       </div>
@@ -163,6 +163,7 @@
           <label class="check"><input id="cfg-usar" type="checkbox"> Usar a API para interpretar os decretos</label>
           <button class="btn centro" id="cfg-testar" type="button">Testar conexão</button>
           <p id="cfg-status" class="credito" role="status"></p>
+          <pre id="cfg-log" class="credito" aria-label="Últimas chamadas à API" style="white-space:pre-wrap;margin:6px 0 0;font:12px/1.5 ui-monospace,Consolas,monospace"></pre>
           <p class="credito">A chave fica guardada só neste navegador e é enviada apenas para a URL acima.</p>
         </div>
         <div class="grupo-cfg">
@@ -202,4 +203,5 @@
 
 <script src="js/logica.js"></script>
 <script src="js/api.js"></script>
+<script src="js/modelo_navegador.js"></script>
 <script src="js/jogo.js"></script>

@@ -75,3 +75,16 @@ test('saude: sucesso devolve provedor e modelo; erro nao lanca excecao', async (
 test('a URL padrao aponta para o back-end local', () => {
   assert.equal(A.criarClienteAPI({ chave: 'k', fetchFn: async () => resposta(200, {}) }).url, 'http://localhost:8000');
 });
+
+test('o cliente registra cada chamada (rota, status, tempo e modelo) para o painel de configuracoes', async () => {
+  const ok = async () => resposta(200, { texto: '{"funcao":"remover_objeto"}', provedor: 'ollama', modelo: 'qwen2.5:7b', latencia_ms: 10 });
+  const c = A.criarClienteAPI({ url: 'http://localhost:8000', chave: 'k', fetchFn: ok });
+  await c.json('x');
+  assert.equal(c.historico.length, 1);
+  assert.equal(c.historico[0].rota, '/v1/ia-generativa/texto');
+  assert.equal(c.historico[0].status, 200);
+  assert.equal(c.historico[0].modelo, 'qwen2.5:7b');
+  const erro = A.criarClienteAPI({ url: 'http://localhost:8000', chave: 'k', fetchFn: async () => resposta(401, {}) });
+  await assert.rejects(() => erro.json('x'), { code: 'api_auth' });
+  assert.equal(erro.historico[0].status, 401);
+});

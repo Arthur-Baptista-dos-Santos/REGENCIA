@@ -1,9 +1,9 @@
 /* Service worker do Regência: deixa o jogo instalável e abrindo offline.
  * Só intercepta GET do mesmo domínio (a API de IA e as bibliotecas externas passam direto). */
-const VERSAO = 'regencia-v2';
+const VERSAO = 'regencia-v4';
 const ARQUIVOS = [
   './', 'index.html', 'manifest.webmanifest', 'favicon.svg',
-  'js/logica.js', 'js/api.js', 'js/jogo.js',
+  'js/logica.js', 'js/api.js', 'js/modelo_navegador.js', 'js/jogo.js',
   'assets/gameplay_scene.jpg', 'assets/regente_concept.jpg',
   'icons/icon-192.png', 'icons/icon-512.png',
 ];
@@ -18,15 +18,22 @@ self.addEventListener('activate', (evento) => {
   );
 });
 
-// stale-while-revalidate: responde do cache na hora e atualiza em segundo plano
+// rede primeiro, cache como reserva: quem está online sempre recebe a versão nova (sem mistura de arquivos
+// antigos e novos depois de uma atualização) e quem está offline continua jogando com a última cópia guardada
 self.addEventListener('fetch', (evento) => {
   const req = evento.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== self.location.origin) return;
   evento.respondWith(
     caches.open(VERSAO).then(async (cache) => {
-      const guardado = await cache.match(req);
-      const rede = fetch(req).then((resp) => { if (resp && resp.ok) cache.put(req, resp.clone()); return resp; }).catch(() => guardado);
-      return guardado || rede;
+      try {
+        const resp = await fetch(req, { cache: 'no-cache' });
+        if (resp && resp.ok) cache.put(req, resp.clone());
+        return resp;
+      } catch (e) {
+        const guardado = await cache.match(req);
+        if (guardado) return guardado;
+        throw e;
+      }
     }),
   );
 });

@@ -17,10 +17,11 @@
 
   // ---------- configurações e recordes (guardados só neste navegador) ----------
   const API = window.RegenciaAPI;
+  const MN = window.RegenciaModelo;
   const CHAVE_CONFIG = 'regencia.config.v1', CHAVE_RECORDES = 'regencia.recordes.v1';
   function lerLS(chave, padrao) { try { const v = localStorage.getItem(chave); return Object.assign({}, padrao, v ? JSON.parse(v) : {}); } catch (e) { return Object.assign({}, padrao); } }
   function gravarLS(chave, valor) { try { localStorage.setItem(chave, JSON.stringify(valor)); } catch (e) { /* armazenamento indisponível: segue sem salvar */ } }
-  const config = lerLS(CHAVE_CONFIG, { apiUrl: API ? API.URL_PADRAO : 'http://localhost:8000', apiKey: '', usarApi: false, volume: 0.8, tremor: true, musica: true });
+  const config = lerLS(CHAVE_CONFIG, { apiUrl: API ? API.URL_PADRAO : 'http://localhost:8000', apiKey: '', usarApi: false, iaNavegador: false, volume: 0.8, tremor: true, musica: true });
   const recordes = lerLS(CHAVE_RECORDES, { campanha: 0, partidas: 0, vitorias: 0 });
 
   // ---------- áudio (efeitos procedurais, não são IA) ----------
@@ -82,7 +83,8 @@
   const sinal = (v) => (v > 0 ? 1 : v < 0 ? -1 : 0);
 
   // ---------- IA ao vivo (capacidade `sample` do Artifact) ----------
-  const MODELO_NAVEGADOR = 'Qwen2.5-1.5B-Instruct-q4f16_1-MLC';
+  const MODELO_NAVEGADOR = 'Qwen2.5-3B-Instruct-q4f16_1-MLC';   // o de 1.5B errou 70% das paráfrases no benchmark (docs/evidencias); o de 3B acertou 95% da função
+  const NOME_MODELO = 'Qwen2.5-3B';
   const URL_WEBLLM = 'https://cdn.jsdelivr.net/npm/@mlc-ai/web-llm@0.2.85/+esm';
   function atualizarMenuIA() {
     const temGPU = !!navigator.gpu;
@@ -120,32 +122,55 @@
       }
     } catch (e) { /* sem IA do ambiente */ }
     atualizarMenuIA();
+    if (!iaDisponivel && config.iaNavegador && navigator.gpu) ativarIANavegador();
   }
-  /** Baixa (1ª vez, ~1 GB, fica em cache) e inicia um modelo de linguagem que roda 100% no navegador, via WebGPU. */
+  /** Baixa (1ª vez, ~2,5 GB, fica em cache) e inicia um modelo de linguagem que roda 100% no navegador, via WebGPU. */
   async function ativarIANavegador() {
     if (baixando || provedor === 'navegador') return;
     if (!navigator.gpu) { aviso('Este navegador não tem WebGPU. Use Chrome ou Edge recentes no computador.', 3500); return; }
     baixando = true; el.iaBaixar.hidden = true; el.iaToggle.hidden = true;
-    el.iaStatus.textContent = 'Preparando o modelo de linguagem… (a 1ª vez baixa cerca de 1 GB e fica guardado no navegador)';
+    el.iaStatus.textContent = 'Preparando o modelo de linguagem… (a 1ª vez baixa cerca de 2,5 GB e fica guardado no navegador)';
     try {
       const m = await import(URL_WEBLLM);
-      const motor = await m.CreateMLCEngine(MODELO_NAVEGADOR, {
+      const criarMotor = () => m.CreateMLCEngine(MODELO_NAVEGADOR, {
         initProgressCallback: (p) => { el.iaStatus.textContent = 'Modelo de linguagem: ' + Math.round((p.progress || 0) * 100) + '% ' + (p.text.includes('Fetching') ? '(baixando)' : '(carregando na GPU)'); },
       });
-      sampleFn = {
-        json: async (prompt, opts) => {
+      let motor = await criarMotor();
+      let fila = Promise.resolve();   // uma geração por vez: o motor de gramática do WebLLM não aceita chamadas sobrepostas
+      const uma = async (mensagens, estado) => motor.chat.completions.create({
+        messages: mensagens, temperature: 0, max_tokens: 90,
+        response_format: { type: 'json_object', schema: JSON.stringify(MN.montarSchema(estado, L.CATALOGO)) },
+      });
+      const gerar = (mensagens, estado, opts) => {
+        const rodar = async () => {
           if (opts && opts.signal && opts.signal.aborted) throw { code: 'cancelled' };
           const aborta = () => { try { motor.interruptGenerate(); } catch (e) { /* sem geração em curso */ } };
           if (opts && opts.signal) opts.signal.addEventListener('abort', aborta, { once: true });
-          const r = await motor.chat.completions.create({
-            messages: [{ role: 'user', content: prompt }], temperature: 0.2, max_tokens: 220,
-          });
-          if (opts && opts.signal && opts.signal.aborted) throw { code: 'cancelled' };
-          const texto = (r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content) || '';
-          const ini = texto.indexOf('{'), fim = texto.lastIndexOf('}');
-          try { return JSON.parse(texto.slice(ini, fim + 1)); } catch (e) { throw { code: 'invalid_json', message: texto.slice(0, 80) }; }
-        },
+          let r;
+          try { r = await uma(mensagens, estado); }
+          catch (e) {
+            // o motor de gramática do WebLLM às vezes "morre" entre chamadas: recarrega o modelo (já em cache) e tenta de novo
+            if (!/GrammarMatcher|disposed|not loaded/i.test(String((e && e.message) || e))) throw e;
+            motor = await criarMotor(); r = await uma(mensagens, estado);
+          }
+          return r;
+        };
+        const p = fila.then(rodar, rodar); fila = p.catch(() => {});
+        return p.then((r) => finalizar(r, opts));
       };
+      const finalizar = (r, opts) => {
+        if (opts && opts.signal && opts.signal.aborted) throw { code: 'cancelled' };
+        const texto = (r.choices && r.choices[0] && r.choices[0].message && r.choices[0].message.content) || '';
+        try { return JSON.parse(texto.slice(texto.indexOf('{'), texto.lastIndexOf('}') + 1)); } catch (e) { throw { code: 'invalid_json', message: texto.slice(0, 80) }; }
+      };
+      // saída restrita por gramática: só funções do catálogo e ids de objetos que existem no nível
+      sampleFn = {
+        decreto: (frase, estado, opts) => gerar(MN.montarMensagens(frase, estado), estado, opts),
+        decretoRegente: (estado, opts) => gerar(MN.montarMensagensRegente(estado), estado, opts),
+      };
+      el.iaStatus.textContent = 'Aquecendo o modelo (compila os shaders da GPU, só na 1ª vez)…';
+      try { await sampleFn.decreto('chove perto do poço', L.criarEstado(0), {}); } catch (e) { /* o aquecimento é só otimização */ }
+      config.iaNavegador = true; gravarLS(CHAVE_CONFIG, config);
       iaDisponivel = true; iaViva = true; provedor = 'navegador'; primeiraChamadaIA = false;
       aviso('Modelo de linguagem pronto: agora os decretos são interpretados por IA.', 3000);
     } catch (e) {
@@ -164,13 +189,13 @@
     else if (code === 'timeout') aviso('A IA demorou demais: usei o interpretador local neste decreto.', 3000);
     else aviso('Resposta da IA inválida (' + (code || 'erro') + '): usei o interpretador local.', 3000);
   }
-  async function chamarIA(prompt) {
+  async function chamarIA(chamada) {
     const ctl = new AbortController();
-    const limite = provedor === 'navegador' ? 40000 : provedor === 'api' ? 30000 : (primeiraChamadaIA ? 60000 : 15000);
+    const limite = provedor === 'navegador' ? 60000 : provedor === 'api' ? 30000 : (primeiraChamadaIA ? 60000 : 15000);
     let timer = 0;
     // o tempo limite é garantido por uma corrida: o jogo nunca fica esperando a IA, mesmo que ela ignore o cancelamento
     const tempo = new Promise((_, rejeita) => { timer = setTimeout(() => { ctl.abort(); rejeita({ code: 'timeout', message: 'tempo esgotado' }); }, limite); });
-    try { return await Promise.race([sampleFn.json(prompt, { modelTier: 'quick', cache: false, signal: ctl.signal }), tempo]); }
+    try { return await Promise.race([typeof chamada === 'function' ? chamada(ctl.signal) : sampleFn.json(chamada, { modelTier: 'quick', cache: false, signal: ctl.signal }), tempo]); }
     catch (e) { if (e && e.code === 'cancelled') throw { code: 'timeout', message: 'tempo esgotado' }; throw e; }
     finally { clearTimeout(timer); primeiraChamadaIA = false; }
   }
@@ -182,11 +207,18 @@
     J.pausado = !!v;
     if (v) { mostrar(el.pausa); el.frase.blur(); } else { esconder(el.pausa); if (J.papel.regenteHumano) el.frase.focus(); }
   }
+  /** Mostra as últimas chamadas feitas à API do grupo (prova, em tempo de execução, de que o jogo consome a rota). */
+  function mostrarLogAPI() {
+    const h = provedor === 'api' && sampleFn && sampleFn.historico ? sampleFn.historico : [];
+    const linhas = h.map((c) => c.hora + '  ' + c.metodo + ' ' + c.rota + '  =>  ' + (c.status || 'sem resposta') + '  ' + c.ms + ' ms' + (c.modelo ? '  ' + c.provedor + '/' + c.modelo : ''));
+    $('cfg-log').textContent = linhas.length ? ['Últimas chamadas à API do grupo:'].concat(linhas).join('\n') : '';
+  }
   function abrirConfig(voltar) {
     configVoltar = voltar;
     $('cfg-url').value = config.apiUrl; $('cfg-key').value = config.apiKey; $('cfg-usar').checked = !!config.usarApi;
     $('cfg-volume').value = String(Math.round(config.volume * 100)); $('cfg-musica').checked = !!config.musica; $('cfg-tremor').checked = !!config.tremor;
     $('cfg-status').textContent = ''; $('cfg-status').className = 'credito';
+    mostrarLogAPI();
     esconder(el.menu); esconder(el.pausa); mostrar(el.config);
   }
   async function fecharConfig() {
@@ -296,7 +328,7 @@
   }
   function selosDe(fonte, detalhe) {
     if (fonte === 'api') return ['API' + (detalhe ? ' ' + detalhe : ''), 'ia'];
-    if (fonte === 'ia') return ['IA ao vivo', 'ia'];
+    if (fonte === 'ia') return ['IA no navegador' + (detalhe ? ' ' + detalhe : ''), 'ia'];
     if (fonte === 'regente-ia') return ['Regente-IA ao vivo', 'ia'];
     if (fonte === 'regente-local') return ['Regente-IA · local', 'bot'];
     if (fonte === 'local-fallback') return ['local (fallback)', 'local'];
@@ -356,11 +388,11 @@
     if (iaViva && sampleFn) {
       const t0 = performance.now();
       try {
-        const bruto = await chamarIA(L.montarPromptInterprete(frase, S));
+        const bruto = await chamarIA(sampleFn.decreto ? (signal) => sampleFn.decreto(frase, S, { signal }) : L.montarPromptInterprete(frase, S));
         const c = L.coagirDecreto(bruto);
         if (!c.ok) throw { code: 'invalid_schema', message: c.erro };
         const meta = sampleFn.ultimoMeta;
-        return { bruto: c.decreto, fonte: provedor === 'api' ? 'api' : 'ia', detalhe: meta ? meta.modelo : '', ms: Math.round(performance.now() - t0) };
+        return { bruto: c.decreto, fonte: provedor === 'api' ? 'api' : 'ia', detalhe: meta ? meta.modelo : (provedor === 'navegador' ? NOME_MODELO : ''), ms: Math.round(performance.now() - t0) };
       } catch (e) { tratarErroIA(e); }
     }
     return { bruto: L.interpretarLocal(frase, S), fonte: iaViva ? 'local-fallback' : 'local', ms: 0 };
@@ -402,6 +434,8 @@
     frase = L.limitarTexto(frase, 160).trim(); if (!frase) return;
     const tok = J.token; J.pendente = true; el.enviar.disabled = true;
     definirStatus(iaViva ? 'A IA está interpretando o decreto…' : 'Interpretando decreto (modo local)…', 'aviso');
+    const t0 = performance.now();
+    const relogio = iaViva ? setInterval(() => { if (J && J.pendente) definirStatus('A IA está interpretando o decreto… ' + Math.round((performance.now() - t0) / 1000) + ' s', 'aviso'); }, 1000) : 0;
     try {
       let r = await interpretarFrase(frase);
       if (!J || J.token !== tok || J.fim) return;
@@ -411,7 +445,7 @@
         if (!pre.aprovado && /não existe|malformado|protegid/.test(pre.motivo)) r = { bruto: L.interpretarLocal(frase, J.estado), fonte: 'local-fallback', ms: r.ms };
       }
       executarDecreto(r.bruto, { frase, fonte: r.fonte, ms: r.ms, detalhe: r.detalhe });
-    } finally { if (J && J.token === tok) { J.pendente = false; el.enviar.disabled = !J.papel.regenteHumano; } }
+    } finally { clearInterval(relogio); if (J && J.token === tok) { J.pendente = false; el.enviar.disabled = !J.papel.regenteHumano; } }
   }
   async function pensarRegenteIA(dt) {
     const R = J.regenteIA, S = J.estado;
@@ -423,9 +457,10 @@
       if (iaViva && sampleFn) {
         const t0 = performance.now();
         try {
-          const r = await chamarIA(L.montarPromptRegente(S));
+          const noNavegador = !!sampleFn.decretoRegente;
+          const r = noNavegador ? { decreto: await chamarIA((signal) => sampleFn.decretoRegente(S, { signal })) } : await chamarIA(L.montarPromptRegente(S));
           const c = L.coagirDecreto(r && r.decreto);
-          if (c.ok) { bruto = c.decreto; fala = L.limitarTexto(r.fala || '', 120); fonte = 'regente-ia'; ms = Math.round(performance.now() - t0); }
+          if (c.ok) { bruto = c.decreto; fala = noNavegador ? L.FRASES_REGENTE[Math.floor(Math.random() * L.FRASES_REGENTE.length)][0] : L.limitarTexto(r.fala || '', 120); fonte = 'regente-ia'; ms = Math.round(performance.now() - t0); }
         } catch (e) { tratarErroIA(e); }
       }
       if (!bruto) { const par = L.FRASES_REGENTE[Math.floor(Math.random() * L.FRASES_REGENTE.length)]; fala = par[0]; bruto = L.interpretarLocal(par[1], S); }
@@ -856,7 +891,7 @@
   window.__regencia = {
     L, estado: () => J, tela: () => tela, iniciarModo, iniciarNivel, decretar, executarDecreto, teclas,
     avancar(seg) { let n = Math.round(seg / FIXO); while (n-- > 0 && J && !J.fim) passoMundo(FIXO); }, desenhar: () => desenhar(0.016),
-    ativarIANavegador, forcarIA(on, fn) { sampleFn = fn || sampleFn; iaDisponivel = !!sampleFn; iaViva = !!on && !!sampleFn; atualizarMenuIA(); },
+    ativarIANavegador, iaAtual: () => sampleFn, forcarIA(on, fn) { sampleFn = fn || sampleFn; iaDisponivel = !!sampleFn; iaViva = !!on && !!sampleFn; atualizarMenuIA(); },
   };
 
   setTela('menu');

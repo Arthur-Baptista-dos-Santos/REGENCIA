@@ -43,12 +43,14 @@
     const url = normalizarUrl(config && config.url) || URL_PADRAO;
     const chave = String((config && config.chave) || '');
     const f = (config && config.fetchFn) || (typeof fetch === 'function' ? fetch.bind(globalThis) : null);
-    const cliente = { url, ultimoMeta: null };
+    const cliente = { url, ultimoMeta: null, historico: [] };
+    const registrar = (r) => { cliente.historico.unshift(Object.assign({ hora: new Date().toTimeString().slice(0, 8), metodo: 'POST', rota: ROTA_TEXTO }, r)); cliente.historico.length = Math.min(cliente.historico.length, 8); };
 
     cliente.json = async function (prompt, opcoes) {
       if (!f) throw { code: 'api_erro', message: 'fetch indisponivel' };
       if (!chave) throw { code: 'api_auth', message: 'sem API Key' };
       let resp;
+      const t0 = Date.now();
       try {
         resp = await f(url + ROTA_TEXTO, {
           method: 'POST',
@@ -58,12 +60,14 @@
         });
       } catch (e) {
         if (e && (e.name === 'AbortError' || e.code === 'cancelled')) throw { code: 'cancelled', message: 'cancelado' };
+        registrar({ status: 0, ms: Date.now() - t0 });
         throw { code: 'api_rede', message: 'nao foi possivel falar com a API' };
       }
-      if (!resp.ok) throw { code: codigoDoStatus(resp.status), message: 'HTTP ' + resp.status };
+      if (!resp.ok) { registrar({ status: resp.status, ms: Date.now() - t0 }); throw { code: codigoDoStatus(resp.status), message: 'HTTP ' + resp.status }; }
       let corpo;
       try { corpo = await resp.json(); } catch (e) { throw { code: 'api_erro', message: 'corpo invalido' }; }
       cliente.ultimoMeta = { provedor: corpo.provedor, modelo: corpo.modelo, latencia_ms: corpo.latencia_ms };
+      registrar({ status: resp.status, ms: Date.now() - t0, provedor: corpo.provedor, modelo: corpo.modelo });
       return extrairJson(corpo.texto);
     };
 
