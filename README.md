@@ -47,6 +47,7 @@ O repositorio tem **projetos separados**, cada um com seu README, dependencias e
 | [`painel/`](painel) | Painel que consome a mesma API com `requests` | Streamlit, requests |
 | [`prototipo_python/`](prototipo_python) | Prototipo da CP4 (interpretador e validador em Python) | Python, pydantic, Pygame |
 | [`docs/`](docs) | Arquitetura, produto e evidencias | Markdown e capturas |
+| [`ENTREGA_FRONTEND/`](ENTREGA_FRONTEND) | **Entregaveis da disciplina de Front-end** (mapa requisito a requisito, trechos de codigo, evidencias, dados do grupo) | Markdown e capturas |
 
 O jogo e **jogavel sem back-end** (um interpretador local por palavras-chave assume). Com o back-end ligado, os decretos do jogador sao interpretados por um modelo de linguagem de verdade.
 

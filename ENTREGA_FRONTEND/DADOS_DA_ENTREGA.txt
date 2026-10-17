@@ -1,0 +1,33 @@
+ENTREGA DE FRONT-END - CHECKPOINT 5
+Projeto: Regencia (jogo cooperativo com IA generativa)
+Disciplina: Front-end
+Instituicao: FIAP
+
+INTEGRANTES
+Arthur Baptista dos Santos - RM 565346
+João Pedro de Moura Dutra Franco - RM 561738
+Nelson Félix Neto - RM 565603
+
+LINKS
+Repositorio (GitHub, back-end + jogo + painel):
+https://github.com/Arthur-Baptista-dos-Santos/REGENCIA
+
+Jogo publicado (jogar no navegador):
+https://arthur-baptista-dos-santos.github.io/REGENCIA/
+
+Video de Front-end (jogo e arquitetura):
+(LINK A SER PREENCHIDO)
+
+Video de PLN (Checkpoint 5):
+https://youtu.be/s1Bj-OcbRlQ
+
+COMO CONFERIR A API
+Swagger (com a API rodando localmente): http://localhost:8000/docs
+Rota de IA generativa: POST /v1/ia-generativa/texto (header X-API-Key)
+Saude da API: GET /health
+
+PASTAS DO REPOSITORIO
+backend/   API FastAPI (routers, providers, seguranca, CORS)
+web/       jogo (front-end)
+painel/    painel Streamlit que consome a API com requests
+ENTREGA_FRONTEND/   esta pasta, com os entregaveis de Front-end
